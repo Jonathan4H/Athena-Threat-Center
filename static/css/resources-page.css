@@ -1,0 +1,158 @@
+body {
+    background-color: darkgray;
+}
+.navtop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5px;
+    background-color: #333;
+    border-radius: 4px;
+}
+.navtop .logo {
+    margin-left: 50px;
+}
+.nav-links {
+    list-style: none;
+}
+.nav-links li {
+    display: inline-block;
+}
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+    padding: 0 15px;
+}
+.burger {
+    display: none;
+}
+.content #desc {
+    color: blue;
+    font-weight: normal;
+    text-align: center;
+}
+.field {
+    text-align: center;
+    position: relative;
+}
+.field #search {
+    width: 40%;
+    padding: 0 20px;
+	font-size: 18px;
+	height: 40px;
+	border: 1px solid darken(white, 30%);
+	border-radius: 20px 0 0 20px;
+}
+.field #button {
+    cursor: pointer;
+    border: none;
+    background-size: 35px 35px;
+    background-color: cornflowerblue;
+	border-radius: 0 20px 20px 0;
+	display: inline-block;
+	width: 90px;
+	height: 40px;
+    color: white;
+}
+.container {
+    margin: 20px auto;
+    width: 300px;
+    height: 300px;
+    background-image: url(../images/red-skull.jpeg);
+}
+.container .transbox {
+    background-color: white;
+    opacity: 0.8;
+    display: grid;
+    grid-template-columns: 150px 150px;
+    grid-row: auto auto;
+    margin: 20px auto;
+    width: 300px;
+    height: 300px;
+}
+.container .transbox .box {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-family: sans-serif;
+    border: 1px solid black;
+}
+@media screen and (max-width: 768px) {
+    .nav-links {
+        position: absolute;
+        right: 0;
+        height: 92vh;
+        top: 8vh;
+        background-color: #333;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 20%;
+        transform: translateX(100%);
+        transition: transform 0.5s ease-in;
+        border-radius: 4px;
+    }
+    .nav-links li {
+        opacity: 0;
+    }
+    .burger {
+        display: block;
+        cursor: pointer;
+    }
+    .burger div {
+        width: 25px;
+        height: 3px;
+        background-color: white;
+        margin: 5px;
+        transition: all 0.3s ease;
+    }
+    .nav-active {
+        transform: translateX(0);
+    }
+    @keyframes navLinkFade {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    .nav-links li {
+        animation: navLinkFade 0.5s ease forwards 0.5s;
+        margin: 5px 0;
+    }
+}
+
+/* animate burger icon into a close (X) icon */
+.toggle .line1 {
+    transform: rotate(-45deg) translate(-5px, 6px);
+}
+.toggle .line2 {
+    opacity: 0;
+}
+.toggle .line3 {
+    transform: rotate(45deg) translate(-5px, -6px);
+}
+
+/* Accessibility Improvement */
+.nav-links a:focus,
+.nav-links a:hover {
+    background-color: #555; /* Adds a hover and focus effect for better visual feedback */
+    color: #fff;
+    padding: 0 15px;
+}
+
+/* Mobile menu experience refinement */
+.menu-backdrop {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9; /* Ensure it's below the nav-links but above other content */
+}

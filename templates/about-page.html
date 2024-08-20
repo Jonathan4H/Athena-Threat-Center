@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athena Threat Center - About</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/about-page.css') }}">
+</head>
+<body>
+    <nav class="navtop">
+        <div class="logo">
+            <img src="{{ url_for('static', filename='images/athena-logo.png') }}" alt="athena-logo" width="35%" height="35%">
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="about-page.html">About</a></li>
+            <li><a href="resources-page.html">Resources</a></li>
+            <li><a href="login-page.html">Logout</a></li>
+        </ul>
+        <div class="burger">
+            <div class="line1"></div>
+            <div class="line2"></div>
+            <div class="line3"></div>
+        </div>
+    </nav>
+    <div class="content">
+        <h2>Athena Threat Center</h2>
+        <p>We are born to help those who are unfamiliar with malware to protect themselves and also gain knowledge about the malware.</p>
+    </div>
+</body>
+<footer>
+    <h6>Copyright &copy; 2024 Athena. All Rights Reserved</h6>
+</footer>
+<script>
+    const burger = document.querySelector('.burger');
+    const navLinks = document.querySelector('.nav-links');
+    const body = document.querySelector('body');
+    const backdrop = document.createElement('div');
+    backdrop.classList.add('menu-backdrop');
+
+    body.appendChild(backdrop);
+
+    burger.addEventListener('click', () => {
+        navLinks.classList.toggle('nav-active');
+        backdrop.classList.toggle('display'); // Show or hide the backdrop
+
+        // Toggle body scrolling
+        body.classList.toggle('fixed-position');
+        
+        // Burger Animation
+        burger.classList.toggle('toggle');
+    });
+
+    backdrop.addEventListener('click', function() {
+        navLinks.classList.remove('nav-active');
+        this.classList.remove('display'); // Hide the backdrop when clicked
+        body.classList.remove('fixed-position');
+        burger.classList.remove('toggle');
+    });
+</script>
+</html>

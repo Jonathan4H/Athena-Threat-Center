@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athena Threat Center - Home</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/home-page.css') }}">
+</head>
+<body>
+    <nav class="navtop">
+        <div class="logo">
+            <img src="{{ url_for('static', filename='images/athena-logo.png') }}" alt="athena-logo" width="35%" height="35%">
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="about-page.html">About</a></li>
+            <li><a href="resources-page.html">Resources</a></li>
+            <li><a href="login-page.html">Logout</a></li>
+        </ul>
+        <div class="burger">
+            <div class="line1"></div>
+            <div class="line2"></div>
+            <div class="line3"></div>
+        </div>
+    </nav>
+    <div class="content">
+        <h1>Athena Threat Center</h1>
+        <h2>Place for enthusiast malwarebusters!</h2>
+        <h3>Upload malware samples here for analysis</h3>
+        <h4>Note: Do NOT submit files containing sensitive information!</h4>
+    </div>
+    <div class="container">
+        <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+            <label class="upload-button" for="upload">Choose a file</label>
+            <input type="file" name="upload" id="upload" accept=".exe,.dll,.zip,.rar,.pdf,.bat" required><br>
+            <label class="submit-button" for="submit">Submit</label>
+            <input type="submit" value="Submit" id="submit">
+        </form>
+    </div>
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <div class="text">Analyzing...</div>
+    </div>
+</body>
+<script>
+    const burger = document.querySelector('.burger');
+    const navLinks = document.querySelector('.nav-links');
+    const body = document.querySelector('body');
+    const backdrop = document.createElement('div');
+    backdrop.classList.add('menu-backdrop');
+
+    body.appendChild(backdrop);
+
+    burger.addEventListener('click', () => {
+        navLinks.classList.toggle('nav-active');
+        backdrop.classList.toggle('display'); // Show or hide the backdrop
+
+        // Toggle body scrolling
+        body.classList.toggle('fixed-position');
+        
+        // Burger Animation
+        burger.classList.toggle('toggle');
+    });
+
+    backdrop.addEventListener('click', function() {
+        navLinks.classList.remove('nav-active');
+        this.classList.remove('display'); // Hide the backdrop when clicked
+        body.classList.remove('fixed-position');
+        burger.classList.remove('toggle');
+    });
+
+    // Show loader on form submit
+    const form = document.getElementById('upload-form');
+    const loader = document.getElementById('loader');
+
+    form.addEventListener('submit', function() {
+            loader.style.display = 'block'; // Show the loader
+            form.classList.add('loading'); // Add loading class to form
+        });
+
+        window.addEventListener('error', function(event) {
+            loader.style.display = 'none'; // Hide the loader on error
+            form.classList.remove('loading'); // Remove loading class from form
+        });
+</script>
+</html>

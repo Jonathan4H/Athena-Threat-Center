@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athena Threat Center - Scan Result</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/result.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Athena Threat Center</h1>
+        <ul>
+            <li>
+                Status: {{ analysis_data['data']['attributes']['status'] }}
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            ({{ message }})
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </li>
+            <li>SHA256: {{ analysis_data['meta']['file_info']['sha256'] }}</li>
+            <li>MD5: {{ analysis_data['meta']['file_info']['md5'] }}</li>
+            <li>Size: {{ analysis_data['meta']['file_info']['size'] }} bytes</li>
+        </ul>
+        
+        <h2>Scan Results - {{ malicious_count }} antivirus engines found this file to be malicious.</h2>
+        <div class="malicious-filter-container">
+            <label for="maliciousFilter">Show only malicious categories:</label>
+            <input type="checkbox" id="maliciousFilter" onclick="filterMalicious()">
+        </div>
+        <table border="1" id="scanDetailTable">
+            <thead>
+                <tr>
+                    <th>Engine</th>
+                    <th>Category</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for engine, result in analysis_data['data']['attributes']['results'].items() %}
+                    <tr>
+                        <td>{{ engine }}</td>
+                        <td>{{ result['category'] }}</td>
+                        <td>{{ result['result'] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if behavior_data %}
+        <h2>Behavior Data</h2>
+            <div class="filter-container">
+                <label for="severityFilter">Filter by severity:</label>
+                <select id="severityFilter" onchange="filterTable()">
+                    <option value="ALL">All</option>
+                    <option value="INFO">INFO</option>
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                </select>
+                <label for="matchDataToggle">Show Match Data:</label>
+                <input type="checkbox" id="matchDataToggle" checked onclick="toggleMatchData()">
+            </div>
+            <table border="1" id="behaviorTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Match Data</th>
+                        <th>Severity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for behavior in behavior_data['data']['signature_matches'] %}
+                        <tr>
+                            <td>{{ behavior['name'] }}</td>
+                            <td>{{ behavior['description'] }}</td>
+                            <td>{{ behavior['match_data'] }}</td>
+                            <td class="{{ behavior['severity'] }}">{{ behavior['severity'] }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No behavior data available for this file.</p>
+        {% endif %}
+        <a href="/">Upload another file</a>
+    </div>
+</body>
+<script>
+    function filterTable() {
+        var severity = document.getElementById("severityFilter").value;
+        var table = document.getElementById("behaviorTable");
+        var rows = table.getElementsByTagName("tr");
+
+        for (var i = 1; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName("td");
+            var severityCell = cells[3];
+            if (severity === "ALL" || severityCell.textContent === severity) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+    function filterMalicious() {
+        var checkbox = document.getElementById("maliciousFilter");
+        var table = document.getElementById("scanDetailTable");
+        var rows = table.getElementsByTagName("tr");
+
+        for (var i = 1; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName("td");
+            var categoryCell = cells[1];
+            if (checkbox.checked) {
+                if (categoryCell.textContent.toLowerCase() === "malicious") {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = "none";
+                }
+            } else {
+                rows[i].style.display = "";
+            }
+        }
+    }
+    function toggleMatchData() {
+        var checkbox = document.getElementById("matchDataToggle");
+        var table = document.getElementById("behaviorTable");
+        var rows = table.getElementsByTagName("tr");
+
+        // Toggle the header cell for Match Data
+        var header = table.getElementsByTagName("thead")[0];
+        var headerCells = header.getElementsByTagName("th");
+        if (headerCells.length > 2) {
+            var matchDataHeaderCell = headerCells[2];
+            if (checkbox.checked) {
+                matchDataHeaderCell.style.display = "";
+            } else {
+                matchDataHeaderCell.style.display = "none";
+            }
+        }
+
+        // Toggle the body cells for Match Data
+        for (var i = 0; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName("td");
+            if (cells.length > 2) { // Ensure there's a Match Data column
+                var matchDataCell = cells[2];
+                if (checkbox.checked) {
+                    matchDataCell.style.display = "";
+                } else {
+                    matchDataCell.style.display = "none";
+                }
+            }
+        }
+    }
+</script>
+</html>

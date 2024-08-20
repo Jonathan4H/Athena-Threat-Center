@@ -1,0 +1,227 @@
+body {
+    background-color: darkgray;
+}
+.navtop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5px;
+    background-color: #333;
+    border-radius: 4px;
+}
+.navtop .logo {
+    margin-left: 50px;
+}
+.nav-links {
+    list-style: none;
+}
+.nav-links li {
+    display: inline-block;
+}
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+    padding: 0 15px;
+}
+.burger {
+    display: none;
+}
+.content {
+    width: 35%;
+    margin: 0 auto;
+}
+.content h1, .content h2, .content h3, .content h4 {
+    text-align: center;
+}
+.content h1 {
+    color: blue;
+}
+.content h2 {
+    color: orange;
+    text-shadow: 1px 1px gray;
+}
+.content h3 {
+    color: darkviolet;
+}
+.content h4 {
+    color: red;
+    background-color: yellow;
+}
+.container, .upload-button, .submit-button {
+    border-radius: 4px;
+}
+.upload-button, .submit-button {
+    display: inline-block;
+    padding: 8px 12px; 
+    cursor: pointer;
+    font-size: 16px;
+    color: #fff;
+}
+.container {
+    background-color: lightskyblue;
+    width: 200px;
+    margin-left: 37%;
+    padding: 10px;
+    position: relative;
+}
+.upload-button {
+    background-color: blue;
+}
+.submit-button {
+    background-color: green;
+}
+input[type="file"], input[type="submit"] {
+    position: absolute;
+    z-index: -1;
+}
+input[type="file"] {
+    padding: 5px;
+    font-size: 15px;
+    color: black;
+}
+.loader {
+    position: fixed;
+    top: 75%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none; /* Hide the loader by default */
+    z-index: 1000; /* Make sure it's on top of other elements */
+    text-align: center;
+}
+.loader .spinner {
+    border: 16px solid #f3f3f3;
+    border-top: 16px solid #3498db;
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    animation: spin 2s linear infinite;
+    margin: 0 auto;
+}
+.loader .text {
+    margin-top: 20px;
+    font-size: 1.5em;
+    color: #007dd0;
+    text-shadow: 1px 1px gray;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+form.loading {
+    pointer-events: none;
+}
+@media screen and (max-width: 1200px) {
+    .content {
+        width: 42%;
+    }
+    .container {
+        margin-left: 34%;
+    }
+}
+@media screen and (max-width: 992px) {
+    .content {
+        width: 55%;
+    }
+    .container {
+        margin-left: 30%;
+    }
+}
+@media screen and (max-width: 768px) {
+    .nav-links {
+        position: absolute;
+        right: 0;
+        height: 92vh;
+        top: 8vh;
+        background-color: #333;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 20%;
+        transform: translateX(100%);
+        transition: transform 0.5s ease-in;
+        border-radius: 4px;
+    }
+    .nav-links li {
+        opacity: 0;
+    }
+    .burger {
+        display: block;
+        cursor: pointer;
+    }
+    .burger div {
+        width: 25px;
+        height: 3px;
+        background-color: white;
+        margin: 5px;
+        transition: all 0.3s ease;
+    }
+    .nav-active {
+        transform: translateX(0);
+    }
+    .content {
+        width: 68%;
+    }
+    .container {
+        margin-left: 26%;
+    }
+    @keyframes navLinkFade {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    .nav-links li {
+        animation: navLinkFade 0.5s ease forwards 0.5s;
+        margin: 5px 0;
+    }
+}
+@media screen and (max-width: 640px) {
+    .content {
+        width: 76%;
+    }
+    .container {
+        margin-left: 22%;
+    }
+}
+@media screen and (max-width: 576px) {
+    .content {
+        width: 90%;
+    }
+    .container {
+        margin-left: 17%;
+    }
+}
+
+/* animate burger icon into a close (X) icon */
+.toggle .line1 {
+    transform: rotate(-45deg) translate(-5px, 6px);
+}
+.toggle .line2 {
+    opacity: 0;
+}
+.toggle .line3 {
+    transform: rotate(45deg) translate(-5px, -6px);
+}
+
+/* Accessibility Improvement */
+.nav-links a:focus,
+.nav-links a:hover {
+    background-color: #555; /* Adds a hover and focus effect for better visual feedback */
+    color: #fff;
+    padding: 0 15px;
+}
+
+/* Mobile menu experience refinement */
+.menu-backdrop {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9; /* Ensure it's below the nav-links but above other content */
+}
