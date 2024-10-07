@@ -27,11 +27,46 @@
                 <label>Email</label>
             </div>
             <div class="user-box">
-                <input type="password" name="password" required>
+                <input type="password" name="password" id="validator" required>
                 <label>Password</label>
+            </div>
+            <div class="password-check">
+                <div class="check-length">
+                    <img src="{{ url_for('static', filename='images/red-cross.png') }}" /> At least 8 characters long
+                </div>
+                <div class="check-number">
+                    <img src="{{ url_for('static', filename='images/red-cross.png') }}" /> At least 1 number (0-9)
+                </div>
+                <div class="check-special">
+                    <img src="{{ url_for('static', filename='images/red-cross.png') }}" /> At least 1 special character (@-$)
+                </div>
             </div>
             <a href="login-page.html">Create Account</a>
         </form>
     </div>
 </body>
+<script>
+    const validator = document.getElementById("validator");
+    const passwordCheck = document.querySelectorAll(".password-check img");
+    validator.focus();
+    const combinations = [
+        { regex: /.{8}/, key: 0 },
+        { regex: /[0-9]/, key: 1 },
+        { regex: /[^A-Za-z0-9]/, key: 2 }
+    ];
+    validator.addEventListener("keyup", function (e) {
+        combinations.forEach((item) => {
+            const IsValid = item.regex.test(e.target.value);
+            const checkItem = passwordCheck[item.key];
+
+            if (IsValid) {
+            checkItem.src = "{{ url_for('static', filename='images/check-mark.png') }}";
+            checkItem.parentElement.style.color = "green";
+            } else {
+            checkItem.src = "{{ url_for('static', filename='images/red-cross.png') }}";
+            checkItem.parentElement.style.color = "red";
+            }
+        });
+    });
+</script>
 </html>

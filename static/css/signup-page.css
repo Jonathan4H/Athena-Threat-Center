@@ -12,7 +12,7 @@ body {
     top: 50%;
     left: 50%;
     width: 400px;
-    padding: 40px;
+    padding: 20px;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, .5);
     box-sizing: border-box;
@@ -55,6 +55,17 @@ body {
     color: #03e9f4;
     font-size: 12px;
 }
+.password-check div {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    color: red;
+}
+.password-check img {
+    width: 20px;
+    height: auto;
+    margin-right: 5px;
+}
 .signup-box form a {
     position: relative;
     display: inline-block;
@@ -65,7 +76,7 @@ body {
     text-transform: uppercase;
     overflow: hidden;
     transition: .5s;
-    margin-top: 40px;
+    margin-top: 20px;
     letter-spacing: 2px;
 }
 .signup-box a:hover {

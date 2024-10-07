@@ -12,7 +12,7 @@ body {
     top: 50%;
     left: 50%;
     width: 400px;
-    padding: 40px;
+    padding: 20px;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, .5);
     box-sizing: border-box;
@@ -70,7 +70,7 @@ body {
     text-transform: uppercase;
     overflow: hidden;
     transition: .5s;
-    margin-top: 40px;
+    margin-top: 20px;
     letter-spacing: 2px;
 }
 .login-box .forget a:hover {
@@ -102,7 +102,7 @@ body {
     text-transform: uppercase;
     overflow: hidden;
     transition: .5s;
-    margin-top: 40px;
+    margin-top: 20px;
     letter-spacing: 2px;
 }
 .login-box #signin:hover {
