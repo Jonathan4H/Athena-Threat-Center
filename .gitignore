@@ -1,2 +1,3 @@
 config.py
 static/images
+__pycache__
