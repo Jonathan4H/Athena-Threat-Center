@@ -1,12 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 import requests
 import time
-import secrets
 import logging
 import config
 
 app = Flask(__name__)
-app.secret_key = secrets.token_urlsafe(16)
+app.secret_key = config.SECRET_KEY
 
 @app.route('/')
 def index():

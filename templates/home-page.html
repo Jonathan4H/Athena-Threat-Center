@@ -23,23 +23,55 @@
             <div class="line3"></div>
         </div>
     </nav>
-    <div class="content">
-        <h1>Athena Threat Center</h1>
-        <h2>Place for enthusiast malwarebusters!</h2>
-        <h3>Upload malware samples here for analysis</h3>
-        <h4>Note: Do NOT submit files containing sensitive information!</h4>
-    </div>
-    <div class="container">
-        <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
-            <label class="upload-button" for="upload">Choose a file</label>
-            <input type="file" name="upload" id="upload" accept=".exe,.dll,.zip,.rar,.pdf,.bat" required><br>
-            <label class="submit-button" for="submit">Submit</label>
-            <input type="submit" value="Submit" id="submit">
-        </form>
-    </div>
-    <div class="loader" id="loader">
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <h1>Athena Threat Center</h1>
+                <p class="subtitle">
+                    Advanced malware analysis platform for researchers and security enthusiasts.
+                </p>
+
+                <div class="warning-box">
+                    ⚠ Never upload files containing personal or sensitive information.
+                </div>
+            </div>
+        </section>
+        <section class="upload-section">
+            <div class="upload-card">
+                <h2>Submit Sample</h2>
+                <p>Supported: .exe, .dll, .zip, .rar, .pdf, .bat</p>
+
+                <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+
+                    <label for="upload" class="dropzone" id="dropzone">
+                        <div class="upload-icon">⬆</div>
+                        <p>Drag & drop your sample here</p>
+                        <span>or click to browse</span>
+                    </label>
+
+                    <input 
+                        type="file"
+                        name="upload"
+                        id="upload"
+                        accept=".exe,.dll,.zip,.rar,.pdf,.bat"
+                        required
+                        hidden
+                    >
+
+                    <div class="file-preview" id="file-preview">
+                        No file selected
+                    </div>
+
+                    <button type="submit" class="submit-button" id="submit-btn" disabled>
+                        Analyze Sample
+                    </button>
+                </form>
+            </div>
+        </section>
+    </main>
+    <div class="loader" id="loader" hidden>
         <div class="spinner"></div>
-        <div class="text">Analyzing...</div>
+        <p>Analyzing malware sample...</p>
     </div>
 </body>
 <script>
@@ -69,18 +101,55 @@
         burger.classList.remove('toggle');
     });
 
+    const fileInput = document.getElementById('upload');
+    const filePreview = document.getElementById('file-preview');
+    const submitBtn = document.getElementById('submit-btn');
+
     // Show loader on form submit
     const form = document.getElementById('upload-form');
     const loader = document.getElementById('loader');
 
-    form.addEventListener('submit', function() {
-            loader.style.display = 'block'; // Show the loader
-            form.classList.add('loading'); // Add loading class to form
-        });
+    // File selection
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            filePreview.textContent = fileInput.files[0].name;
+            submitBtn.disabled = false;
+        }
+    });
 
-        window.addEventListener('error', function(event) {
-            loader.style.display = 'none'; // Hide the loader on error
-            form.classList.remove('loading'); // Remove loading class from form
-        });
+    // Drag & Drop
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            filePreview.textContent = e.dataTransfer.files[0].name;
+            submitBtn.disabled = false;
+        }
+    });
+
+    // Submit loader
+    form.addEventListener('submit', () => {
+        loader.hidden = false;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Analyzing...";
+    });
+
+    // Error recovery
+    window.addEventListener('error', () => {
+        loader.hidden = true;
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Analyze Sample";
+    });
 </script>
 </html>

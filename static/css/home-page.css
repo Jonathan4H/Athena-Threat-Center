@@ -27,82 +27,109 @@ body {
 .burger {
     display: none;
 }
-.content {
-    width: 35%;
-    margin: 0 auto;
-}
-.content h1, .content h2, .content h3, .content h4 {
+.hero {
     text-align: center;
 }
-.content h1 {
-    color: blue;
+.hero h1 {
+    font-size: 3rem;
+    margin-bottom: 10px;
 }
-.content h2 {
-    color: orange;
-    text-shadow: 1px 1px gray;
+.subtitle {
+    font-size: 1.1rem;
+    max-width: 700px;
+    margin: auto;
+    line-height: 1.6;
 }
-.content h3 {
-    color: darkviolet;
+.warning-box {
+    background: rgba(255, 166, 0, 0.12);
+    border-left: 4px solid orange;
+    padding: 1rem;
+    border-radius: 8px;
 }
-.content h4 {
-    color: red;
-    background-color: yellow;
+.upload-section {
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
 }
-.container, .upload-button, .submit-button {
-    border-radius: 4px;
-}
-.upload-button, .submit-button {
-    display: inline-block;
-    padding: 8px 12px; 
-    cursor: pointer;
-    font-size: 16px;
+.upload-card {
+    width: 100%;
+    max-width: 500px;
+    padding: 2rem;
+    border-radius: 20px;
+    background: #111827;
     color: #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
 }
-.container {
-    background-color: lightskyblue;
-    width: 200px;
-    margin-left: 37%;
-    padding: 10px;
-    position: relative;
+.upload-card h2 {
+    margin-bottom: 10px;
 }
-.upload-button {
-    background-color: blue;
+.upload-card p {
+    color: #9ca3af;
+    margin-bottom: 20px;
+}
+.dropzone {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    
+    width: 100%;
+    min-height: 100px;
+
+    border: 2px dashed #4b5563;
+    border-radius: 12px;
+
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+
+    background: rgba(255,255,255,0.02);
+}
+.dropzone p {
+    margin: 10px 0 5px;
+    font-size: 16px;
+}
+.dropzone span {
+    font-size: 14px;
+    color: #94a3b8;
+}
+.dropzone:hover,
+.dropzone.dragover {
+    border-color: #3b82f6;
+    background: rgba(59,130,246,.08);
+    transform: scale(1.01);
+}
+.upload-icon {
+    font-size: 2rem;
+}
+.file-preview {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    font-size: 14px;
+    color: #cbd5e1;
 }
 .submit-button {
-    background-color: green;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: #16a34a;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.2s;
 }
-input[type="file"], input[type="submit"] {
-    position: absolute;
-    z-index: -1;
+.submit-button:hover {
+    background: #15803d;
+}
+.submit-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 input[type="file"] {
-    padding: 5px;
-    font-size: 15px;
-    color: black;
-}
-.loader {
-    position: fixed;
-    top: 75%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    display: none; /* Hide the loader by default */
-    z-index: 1000; /* Make sure it's on top of other elements */
-    text-align: center;
-}
-.loader .spinner {
-    border: 16px solid #f3f3f3;
-    border-top: 16px solid #3498db;
-    border-radius: 50%;
-    width: 120px;
-    height: 120px;
-    animation: spin 2s linear infinite;
-    margin: 0 auto;
-}
-.loader .text {
-    margin-top: 20px;
-    font-size: 1.5em;
-    color: #007dd0;
-    text-shadow: 1px 1px gray;
+    display: none;
 }
 @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -110,22 +137,7 @@ input[type="file"] {
 }
 form.loading {
     pointer-events: none;
-}
-@media screen and (max-width: 1200px) {
-    .content {
-        width: 42%;
-    }
-    .container {
-        margin-left: 34%;
-    }
-}
-@media screen and (max-width: 992px) {
-    .content {
-        width: 55%;
-    }
-    .container {
-        margin-left: 30%;
-    }
+    opacity: 0.6;
 }
 @media screen and (max-width: 768px) {
     .nav-links {
@@ -159,12 +171,6 @@ form.loading {
     .nav-active {
         transform: translateX(0);
     }
-    .content {
-        width: 68%;
-    }
-    .container {
-        margin-left: 26%;
-    }
     @keyframes navLinkFade {
         from {
             opacity: 0;
@@ -176,22 +182,6 @@ form.loading {
     .nav-links li {
         animation: navLinkFade 0.5s ease forwards 0.5s;
         margin: 5px 0;
-    }
-}
-@media screen and (max-width: 640px) {
-    .content {
-        width: 76%;
-    }
-    .container {
-        margin-left: 22%;
-    }
-}
-@media screen and (max-width: 576px) {
-    .content {
-        width: 90%;
-    }
-    .container {
-        margin-left: 17%;
     }
 }
 
