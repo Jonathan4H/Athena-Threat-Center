@@ -13,7 +13,6 @@ HEADERS = {"x-apikey": config.VIRUSTOTAL_API_KEY}
 session = requests.Session()
 session.headers.update(HEADERS)
 
-
 # Static pages mapping
 STATIC_PAGES = {
     "/": ("index", "home-page.html"),
@@ -24,16 +23,16 @@ STATIC_PAGES = {
     "/signup-page.html": ("signup", "signup-page.html"),
 }
 
+def make_view(template):
+    def view():
+        return render_template(template)
+    return view
 
 for route, (endpoint, template) in STATIC_PAGES.items():
-    app.add_url_rule(
-        route,
-        endpoint,
-        lambda t=template: render_template(t)
-    )
-
+    app.add_url_rule(route, endpoint, make_view(template))
 
 def vt_post_file(file):
+    file.stream.seek(0)
     files = {"file": (file.filename, file.stream, file.content_type)}
     return session.post(
         f"{VT_BASE_URL}/files",
@@ -41,20 +40,17 @@ def vt_post_file(file):
         timeout=30
     )
 
-
 def vt_get_analysis(analysis_id):
     return session.get(
         f"{VT_BASE_URL}/analyses/{analysis_id}",
         timeout=15
     )
 
-
 def vt_get_behavior(sha256):
     return session.get(
         f"{VT_BASE_URL}/files/{sha256}/behaviour_summary",
         timeout=15
     )
-
 
 def poll_analysis(analysis_id, max_retries=6):
     wait_time = 2
@@ -76,7 +72,6 @@ def poll_analysis(analysis_id, max_retries=6):
 
     return None, 408
 
-
 def normalize_behavior_signatures(signatures):
     severity_map = {
         "IMPACT_SEVERITY_HIGH": "HIGH",
@@ -90,7 +85,6 @@ def normalize_behavior_signatures(signatures):
 
     return signatures
 
-
 @app.route("/upload", methods=["POST"])
 def upload_file():
     file = request.files.get("upload")
@@ -102,7 +96,7 @@ def upload_file():
     try:
         upload_response = vt_post_file(file)
 
-        if upload_response.status_code != 200:
+        if not upload_response.ok:
             flash("Upload failed")
             return redirect(url_for("index"))
 
@@ -114,27 +108,38 @@ def upload_file():
             flash("Analysis timeout or failed")
             return redirect(url_for("index"))
 
-        results = analysis_data["data"]["attributes"]["results"]
+        results = (
+            analysis_data.get("data", {})
+            .get("attributes", {})
+            .get("results", {})
+        )
 
         malicious_count = sum(
             1 for result in results.values()
             if result.get("category") == "malicious"
         )
 
-        sha256 = analysis_data["meta"]["file_info"]["sha256"]
-        behavior_response = vt_get_behavior(sha256)
-
+        sha256 = (
+            analysis_data.get("meta", {})
+            .get("file_info", {})
+            .get("sha256")
+        )
+        
         behavior_data = None
 
-        if behavior_response.status_code == 200:
-            behavior_data = behavior_response.json()
+        if sha256:
+            behavior_response = vt_get_behavior(sha256)
 
-            signatures = (
-                behavior_data.get("data", {})
-                .get("signature_matches", [])
-            )
+            if behavior_response.ok:
+                behavior_data = behavior_response.json()
 
-            normalize_behavior_signatures(signatures)
+                signatures = (
+                    behavior_data.get("data", {})
+                    .get("signature_matches", [])
+                )
+
+                behavior_data["data"]["signature_matches"] = \
+                    normalize_behavior_signatures(signatures)
 
         return render_template(
             "result.html",
