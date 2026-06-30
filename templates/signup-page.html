@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athena Threat Center - Sign Up</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/signup-page.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}">
 </head>
 <body>
     <div class="signup-box">
@@ -32,13 +33,13 @@
             </div>
             <div class="password-check">
                 <div class="check-length">
-                    <img src="{{ url_for('static', filename='images/red-cross.png') }}" /> At least 8 characters long
+                    <i class="bi bi-x-circle"></i> At least 8 characters long
                 </div>
                 <div class="check-number">
-                    <img src="{{ url_for('static', filename='images/red-cross.png') }}" /> At least 1 number (0-9)
+                    <i class="bi bi-x-circle"></i> At least 1 number (0-9)
                 </div>
                 <div class="check-special">
-                    <img src="{{ url_for('static', filename='images/red-cross.png') }}" /> At least 1 special character (@-$)
+                    <i class="bi bi-x-circle"></i> At least 1 special character (@-$)
                 </div>
             </div>
             <a href="login-page.html">Create Account</a>
@@ -47,7 +48,7 @@
 </body>
 <script>
     const validator = document.getElementById("validator");
-    const passwordCheck = document.querySelectorAll(".password-check img");
+    const passwordCheck = document.querySelectorAll(".password-check i");
     validator.focus();
     const combinations = [
         { regex: /.{8}/, key: 0 },
@@ -60,11 +61,13 @@
             const checkItem = passwordCheck[item.key];
 
             if (IsValid) {
-            checkItem.src = "{{ url_for('static', filename='images/check-mark.png') }}";
-            checkItem.parentElement.style.color = "green";
+                checkItem.classList.remove("bi-x-circle");
+                checkItem.classList.add("bi-check-circle");
+                checkItem.parentElement.style.color = "green";
             } else {
-            checkItem.src = "{{ url_for('static', filename='images/red-cross.png') }}";
-            checkItem.parentElement.style.color = "red";
+                checkItem.classList.remove("bi-check-circle");
+                checkItem.classList.add("bi-x-circle");
+                checkItem.parentElement.style.color = "red";
             }
         });
     });

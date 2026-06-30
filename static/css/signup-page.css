@@ -55,13 +55,17 @@ body {
     color: #03e9f4;
     font-size: 12px;
 }
+.password-check {
+    background-color: white;
+    border-radius: 16px;
+}
 .password-check div {
     display: flex;
     align-items: center;
     padding: 5px;
     color: red;
 }
-.password-check img {
+.password-check i {
     width: 20px;
     height: auto;
     margin-right: 5px;
