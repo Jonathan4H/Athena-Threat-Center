@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athena Threat Center - Resources</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/resources-page.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}">
 </head>
 <body>
     <nav class="navtop">
@@ -24,18 +25,33 @@
         </div>
     </nav>
     <div class="content">
-        <h2 id="desc">Search for Cyberthreats</h2>
+        <h2 id="title">Athena Threat Center</h2>
+        <p id="desc">
+            Find malware, CVEs, exploits, and PUPs.
+        </p>
     </div>
     <div class="field">
-        <input type="search" id="search" placeholder="i.e Malware, PUP, CVE">
-        <button type="button" id="button">Search</button>
+        <i class="bi bi-search search-icon"></i>
+        <input type="search" id="search" placeholder="Search for Cyber Threat Intelligence">
     </div>
     <div class="container">
         <div class="transbox">
-            <div class="box">Malware</div>
-            <div class="box">PUP</div>
-            <div class="box">Adware</div>
-            <div class="box">Exploit</div>
+            <div class="box">
+                🦠 Malware <br>
+                Known malware families
+            </div>
+            <div class="box">
+                ⚠ PUP <br>
+                Potentially Unwanted Programs
+            </div>
+            <div class="box">
+                📄 CVEs <br>
+                Security vulnerabilities
+            </div>
+            <div class="box">
+                🛡 Exploits <br>
+                Vulnerabilities & PoCs
+            </div>
         </div>
     </div>
 </body>
