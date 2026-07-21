@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Athena Threat Center - Login</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/login-page.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}">
 </head>
 <body>
     <div class="login-box">
@@ -14,9 +15,10 @@
                 <input type="email" name="email" required>
                 <label>Email</label>
             </div>
-            <div class="user-box">
-                <input type="password" name="password" required>
+            <div class="user-box password-box">
+                <input type="password" name="password" id="validator" required>
                 <label>Password</label>
+                <i class="bi bi-eye-slash" id="togglePassword"></i>
             </div>
             <div class="forget">
                 <a href="reset-pass.html">Forgot Password?</a>
@@ -37,4 +39,20 @@
         </form>
     </div>
 </body>
+<script>
+    const validator = document.getElementById("validator");
+    const togglePassword = document.getElementById("togglePassword");
+
+    togglePassword.addEventListener("click", () => {
+        if (validator.type === "password") {
+            validator.type = "text";
+            togglePassword.classList.remove("bi-eye-slash");
+            togglePassword.classList.add("bi-eye");
+        } else {
+            validator.type = "password";
+            togglePassword.classList.remove("bi-eye");
+            togglePassword.classList.add("bi-eye-slash");
+        }
+    });
+</script>
 </html>

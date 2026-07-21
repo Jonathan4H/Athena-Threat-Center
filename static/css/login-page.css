@@ -126,6 +126,26 @@ body {
     background: linear-gradient(90deg, transparent, #03e9f4);
     animation: btn-anim1 1s linear infinite;
 }
+.password-box {
+    position: relative;
+}
+.password-box input {
+    width: 100%;
+    padding-right: 40px; /* Space for the icon */
+}
+.password-box i {
+    position: absolute;
+    right: 10px;
+    top: 30%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #999;
+    font-size: 18px;
+    transition: color 0.2s;
+}
+.password-box i:hover {
+    color: #fff;
+}
 @keyframes btn-anim1 {
     0% {left: -100%;}
     50%,100% {left: 100%;}
