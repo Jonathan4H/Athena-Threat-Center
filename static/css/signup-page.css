@@ -58,25 +58,52 @@ body {
 .password-box {
     position: relative;
 }
-
 .password-box input {
     width: 100%;
     padding-right: 40px; /* Space for the icon */
 }
-
 .password-box i {
     position: absolute;
     right: 10px;
-    top: 40%;
+    top: 30%;
     transform: translateY(-50%);
     cursor: pointer;
     color: #999;
     font-size: 18px;
     transition: color 0.2s;
 }
-
 .password-box i:hover {
     color: #fff;
+}
+.password-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 10px 0 15px;
+}
+#generatePassword {
+    padding: 10px 18px;
+    background: transparent;
+    border: 2px solid #03e9f4;
+    color: #03e9f4;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: 0.3s;
+}
+#generatePassword:hover {
+    background: #03e9f4;
+    color: #050801;
+    box-shadow:
+        0 0 5px #03e9f4,
+        0 0 25px #03e9f4,
+        0 0 50px #03e9f4;
+}
+#generatePassword:active {
+    transform: scale(0.97);
+}
+#generatePassword i {
+    font-size: 16px;
 }
 .password-check {
     background-color: white;
