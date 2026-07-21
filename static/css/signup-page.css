@@ -55,9 +55,33 @@ body {
     color: #03e9f4;
     font-size: 12px;
 }
+.password-box {
+    position: relative;
+}
+
+.password-box input {
+    width: 100%;
+    padding-right: 40px; /* Space for the icon */
+}
+
+.password-box i {
+    position: absolute;
+    right: 10px;
+    top: 40%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #999;
+    font-size: 18px;
+    transition: color 0.2s;
+}
+
+.password-box i:hover {
+    color: #fff;
+}
 .password-check {
     background-color: white;
     border-radius: 16px;
+    margin-top: 25px;
 }
 .password-check div {
     display: flex;

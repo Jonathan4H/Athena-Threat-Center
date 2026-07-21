@@ -19,9 +19,15 @@
                 <input type="email" name="email" required>
                 <label>Email</label>
             </div>
-            <div class="user-box">
+            <div class="user-box password-box">
                 <input type="password" name="password" id="validator" required>
                 <label>Password</label>
+                <i class="bi bi-eye-slash" id="togglePassword"></i>
+            </div>
+            <div class="password-actions">
+                <button type="button" id="generatePassword">
+                    <i class="bi bi-shuffle"></i> Generate Password
+                </button>
             </div>
             <div class="password-check">
                 <div class="check-length">
@@ -62,6 +68,72 @@
                 checkItem.parentElement.style.color = "red";
             }
         });
+    });
+    const generateBtn = document.getElementById("generatePassword");
+
+    generateBtn.addEventListener("click", () => {
+        validator.value = generatePassword(16);
+
+        // Trigger validation
+        validator.dispatchEvent(new Event("keyup"));
+    });
+
+    function generatePassword(length = 16) {
+        const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const lowercase = "abcdefghijklmnopqrstuvwxyz";
+        const numbers = "0123456789";
+        const specials = "!@#$%^&*()-_=+[]{}<>?";
+
+        const allChars = uppercase + lowercase + numbers + specials;
+
+        let password = "";
+
+        // Guarantee at least one of each required type
+        password += secureRandomChar(uppercase);
+        password += secureRandomChar(lowercase);
+        password += secureRandomChar(numbers);
+        password += secureRandomChar(specials);
+
+        // Fill the remaining characters
+        for (let i = password.length; i < length; i++) {
+            password += secureRandomChar(allChars);
+        }
+
+        // Shuffle the password
+        password = shuffle(password);
+
+        return password;
+    }
+
+    function secureRandomChar(chars) {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+        return chars[array[0] % chars.length];
+    }
+
+    function shuffle(str) {
+        const arr = str.split("");
+
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+
+        return arr.join("");
+    }
+
+    const togglePassword = document.getElementById("togglePassword");
+
+    togglePassword.addEventListener("click", () => {
+        if (validator.type === "password") {
+            validator.type = "text";
+            togglePassword.classList.remove("bi-eye-slash");
+            togglePassword.classList.add("bi-eye");
+        } else {
+            validator.type = "password";
+            togglePassword.classList.remove("bi-eye");
+            togglePassword.classList.add("bi-eye-slash");
+        }
     });
 </script>
 </html>
