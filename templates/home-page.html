@@ -65,6 +65,15 @@
                     <button type="submit" class="submit-button" id="submit-btn" disabled>
                         Analyze Sample
                     </button>
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            <div class="flash-messages">
+                            {% for message in messages %}
+                                <p>{{ message }}</p>
+                            {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
                 </form>
             </div>
         </section>

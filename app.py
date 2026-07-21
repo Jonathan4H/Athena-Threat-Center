@@ -3,6 +3,7 @@ import requests
 import time
 import logging
 import config
+import hashlib
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -31,13 +32,57 @@ def make_view(template):
 for route, (endpoint, template) in STATIC_PAGES.items():
     app.add_url_rule(route, endpoint, make_view(template))
 
+def calculate_sha256(file):
+    sha256 = hashlib.sha256()
+
+    file.stream.seek(0)
+
+    while chunk := file.stream.read(8192):
+        sha256.update(chunk)
+
+    file.stream.seek(0)
+
+    return sha256.hexdigest()
+
+
+def vt_get_file(sha256):
+    return session.get(
+        f"{VT_BASE_URL}/files/{sha256}",
+        timeout=15
+    )
+
 def vt_post_file(file):
     file.stream.seek(0)
-    files = {"file": (file.filename, file.stream, file.content_type)}
+
+    file.stream.seek(0, 2)
+    size = file.stream.tell()
+    file.stream.seek(0)
+
+    files = {
+        "file": (file.filename, file.stream, file.content_type)
+    }
+
+    # <=32 MB
+    if size <= 32 * 1024 * 1024:
+        return session.post(
+            f"{VT_BASE_URL}/files",
+            files=files,
+            timeout=30
+        )
+
+    # >32 MB
+    upload_url = session.get(
+        f"{VT_BASE_URL}/files/upload_url"
+    )
+
+    upload_url.raise_for_status()
+
+    url = upload_url.json()["data"]
+
     return session.post(
-        f"{VT_BASE_URL}/files",
+        url,
         files=files,
-        timeout=30
+        timeout=120
     )
 
 def vt_get_analysis(analysis_id):
@@ -52,11 +97,14 @@ def vt_get_behavior(sha256):
         timeout=15
     )
 
-def poll_analysis(analysis_id, max_retries=6):
-    wait_time = 2
+def poll_analysis(analysis_id, timeout=180):
+    start = time.time()
 
-    for _ in range(max_retries):
+    while time.time() - start < timeout:
         response = vt_get_analysis(analysis_id)
+
+        print("Status:", response.status_code)
+        print("Body:", response.text)
 
         if response.status_code != 200:
             return None, response.status_code
@@ -64,11 +112,12 @@ def poll_analysis(analysis_id, max_retries=6):
         data = response.json()
         status = data["data"]["attributes"]["status"]
 
+        print("Analysis status:", status)
+
         if status == "completed":
             return data, 200
 
-        time.sleep(wait_time)
-        wait_time *= 2  # exponential backoff
+        time.sleep(5)
 
     return None, 408
 
@@ -94,56 +143,75 @@ def upload_file():
         return redirect(url_for("index"))
 
     try:
-        upload_response = vt_post_file(file)
+        # ---------------------------------
+        # Compute hash
+        # ---------------------------------
+        sha256 = calculate_sha256(file)
+        print("SHA256:", sha256)
 
-        if not upload_response.ok:
-            flash("Upload failed")
-            return redirect(url_for("index"))
+        # ---------------------------------
+        # Does VT already know this file?
+        # ---------------------------------
+        file_response = vt_get_file(sha256)
+        if file_response.status_code == 200:
+            print("Existing report found.")
+            file_data = file_response.json()
+        elif file_response.status_code == 404:
+            print("Uploading new sample...")
+            upload_response = vt_post_file(file)
 
-        analysis_id = upload_response.json()["data"]["id"]
-
-        analysis_data, status = poll_analysis(analysis_id)
-
-        if status != 200:
-            flash("Analysis timeout or failed")
-            return redirect(url_for("index"))
-
-        results = (
-            analysis_data.get("data", {})
-            .get("attributes", {})
-            .get("results", {})
-        )
-
-        malicious_count = sum(
-            1 for result in results.values()
-            if result.get("category") == "malicious"
-        )
-
-        sha256 = (
-            analysis_data.get("meta", {})
-            .get("file_info", {})
-            .get("sha256")
-        )
-        
-        behavior_data = None
-
-        if sha256:
-            behavior_response = vt_get_behavior(sha256)
-
-            if behavior_response.ok:
-                behavior_data = behavior_response.json()
-
-                signatures = (
-                    behavior_data.get("data", {})
-                    .get("signature_matches", [])
+            # ----------------------------
+            # Handle upload errors
+            # ----------------------------
+            if upload_response.status_code == 409:
+                flash(
+                    "This sample is already being analyzed. "
+                    "Please try again shortly."
                 )
+                return redirect(url_for("index"))
+            if not upload_response.ok:
+                try:
+                    message = upload_response.json()["error"]["message"]
+                except Exception:
+                    message = upload_response.text
+                flash(message)
+                return redirect(url_for("index"))
 
-                behavior_data["data"]["signature_matches"] = \
-                    normalize_behavior_signatures(signatures)
+            analysis_id = upload_response.json()["data"]["id"]
+            print("Analysis:", analysis_id)
+
+            analysis = poll_analysis(analysis_id)
+
+            if analysis is None:
+                flash("VirusTotal analysis timed out.")
+                return redirect(url_for("index"))
+            # Retrieve final report
+            file_response = vt_get_file(sha256)
+            if not file_response.ok:
+                flash("Could not retrieve completed report.")
+                return redirect(url_for("index"))
+            file_data = file_response.json()
+        else:
+            flash("VirusTotal lookup failed.")
+            return redirect(url_for("index"))
+        attributes = file_data["data"]["attributes"]
+        stats = attributes["last_analysis_stats"]
+        malicious_count = stats["malicious"]
+        behavior_data = None
+        behavior_response = vt_get_behavior(sha256)
+        if behavior_response.ok:
+            behavior_data = behavior_response.json()
+            signatures = (
+                behavior_data
+                .get("data", {})
+                .get("signature_matches", [])
+            )
+            behavior_data["data"]["signature_matches"] = \
+                normalize_behavior_signatures(signatures)
 
         return render_template(
             "result.html",
-            analysis_data=analysis_data,
+            file_data=file_data,
             behavior_data=behavior_data,
             malicious_count=malicious_count
         )
@@ -153,8 +221,11 @@ def upload_file():
         flash("VirusTotal timeout")
 
     except requests.RequestException as e:
-        logging.exception(f"Network error: {e}")
-        flash("Network error")
+        import traceback
+        traceback.print_exc()
+        print("Network error:", repr(e))
+        flash(f"Network error: {e}")
+        return redirect(url_for("index"))
 
     except Exception as e:
         logging.exception(f"Unexpected error: {e}")

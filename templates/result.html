@@ -11,7 +11,7 @@
         <h1>Athena Threat Center</h1>
         <ul>
             <li>
-                Status: {{ analysis_data['data']['attributes']['status'] }}
+                Type: {{ file_data['data']['attributes']['type_description'] }}
                 {% with messages = get_flashed_messages() %}
                     {% if messages %}
                         {% for message in messages %}
@@ -20,12 +20,17 @@
                     {% endif %}
                 {% endwith %}
             </li>
-            <li>SHA256: {{ analysis_data['meta']['file_info']['sha256'] }}</li>
-            <li>MD5: {{ analysis_data['meta']['file_info']['md5'] }}</li>
-            <li>Size: {{ analysis_data['meta']['file_info']['size'] }} bytes</li>
+            <li>SHA256: {{ file_data['data']['attributes']['sha256'] }}</li>
+            <li>MD5: {{ file_data['data']['attributes']['md5'] }}</li>
+            <li>Size: {{ file_data['data']['attributes']['size'] }} bytes</li>
         </ul>
         
-        <h2>Scan Results - {{ malicious_count }} antivirus engines found this file to be malicious.</h2>
+        <h2>
+            <ul>
+                <li>Malicious: {{ file_data['data']['attributes']['last_analysis_stats']['malicious'] }}</li>
+                <li>Undetected: {{ file_data['data']['attributes']['last_analysis_stats']['undetected'] }}</li>
+            </ul>
+        </h2>
         <div class="malicious-filter-container">
             <label for="maliciousFilter">Show only malicious categories:</label>
             <input type="checkbox" id="maliciousFilter" onclick="filterMalicious()">
@@ -39,7 +44,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for engine, result in analysis_data['data']['attributes']['results'].items() %}
+                {% for engine, result in file_data['data']['attributes']['last_analysis_results'].items() %}
                     <tr>
                         <td>{{ engine }}</td>
                         <td>{{ result['category'] }}</td>
@@ -133,25 +138,17 @@
         var headerCells = header.getElementsByTagName("th");
         if (headerCells.length > 2) {
             var matchDataHeaderCell = headerCells[2];
-            if (checkbox.checked) {
-                matchDataHeaderCell.style.display = "";
-            } else {
-                matchDataHeaderCell.style.display = "none";
-            }
+            matchDataHeaderCell.style.display = checkbox.checked ? "" : "none";
         }
 
         // Toggle the body cells for Match Data
         for (var i = 0; i < rows.length; i++) {
             var cells = rows[i].getElementsByTagName("td");
-            if (cells.length > 2) { // Ensure there's a Match Data column
-                var matchDataCell = cells[2];
-                if (checkbox.checked) {
-                    matchDataCell.style.display = "";
-                } else {
-                    matchDataCell.style.display = "none";
-                }
+            if (cells.length > 2) {
+                cells[2].style.display = checkbox.checked ? "" : "none";
             }
         }
     }
+    toggleMatchData();
 </script>
 </html>
