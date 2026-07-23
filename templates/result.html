@@ -7,33 +7,128 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/result.css') }}">
 </head>
 <body>
-    <div class="container">
+    <header class="app-header">
         <h1>Athena Threat Center</h1>
-        <ul>
-            <li>
-                Type: {{ file_data['data']['attributes']['type_description'] }}
-                {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        {% for message in messages %}
-                            ({{ message }})
-                        {% endfor %}
+    </header>
+    <div class="container">
+        <div class="summary-card">
+            <div class="summary-header">
+                <div class="file-info">
+                    <h2>
+                        📄
+                        {% if filename %}
+                            {{ filename }}
+                        {% else %}
+                            {{ file_data['data']['attributes']['sha256'][:12] }}...
+                        {% endif %}
+                    </h2>
+                    <p class="file-type">
+                        {{ file_data['data']['attributes']['type_description'] }}
+                    </p>
+                </div>
+
+                <div class="scan-status">
+                    {% if file_data['data']['attributes']['last_analysis_stats']['malicious'] > 0 %}
+                        <span class="status malicious">
+                            ⚠ Malicious
+                        </span>
+                    {% else %}
+                        <span class="status clean">
+                            ✓ Clean
+                        </span>
                     {% endif %}
-                {% endwith %}
-            </li>
-            <li>SHA256: {{ file_data['data']['attributes']['sha256'] }}</li>
-            <li>MD5: {{ file_data['data']['attributes']['md5'] }}</li>
-            <li>Size: {{ file_data['data']['attributes']['size'] }} bytes</li>
-        </ul>
+                </div>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="label">Type</span>
+                    <span>{{ file_data['data']['attributes']['type_description'] }}</span>
+                </div>
+
+                <div class="summary-item">
+                    <span class="label">Size</span>
+                    <span>
+                        {{ "{:,.2f}".format(file_data['data']['attributes']['size'] / 1024 / 1024) }} MB
+                    </span>
+                </div>
+
+                <div class="summary-item hash-row">
+                    <span class="label">SHA256</span>
+
+                    <span id="sha256Text">
+                        {{ file_data['data']['attributes']['sha256'][:12] }}...
+                        {{ file_data['data']['attributes']['sha256'][-12:] }}
+                    </span>
+
+                    <button
+                        class="copy-btn"
+                        onclick="copyHash('{{ file_data['data']['attributes']['sha256'] }}', this)">
+                        Copy
+                    </button>
+                </div>
+
+                <div class="summary-item hash-row">
+                    <span class="label">MD5</span>
+
+                    <span id="md5Text">
+                        {{ file_data['data']['attributes']['md5'] }}
+                    </span>
+
+                    <button
+                        class="copy-btn"
+                        onclick="copyHash('{{ file_data['data']['attributes']['md5'] }}', this)">
+                        Copy
+                    </button>
+                </div>
+            </div>
+        </div>
         
-        <h2>
-            <ul>
-                <li>Malicious: {{ file_data['data']['attributes']['last_analysis_stats']['malicious'] }}</li>
-                <li>Undetected: {{ file_data['data']['attributes']['last_analysis_stats']['undetected'] }}</li>
-            </ul>
-        </h2>
-        <div class="malicious-filter-container">
-            <label for="maliciousFilter">Show only malicious categories:</label>
-            <input type="checkbox" id="maliciousFilter" onclick="filterMalicious()">
+        {% set stats = file_data['data']['attributes']['last_analysis_stats'] %}
+        {% set malicious = stats['malicious'] %}
+        {% set undetected = stats['undetected'] %}
+        {% set total = stats.values() | sum %}
+
+        <div class="status-cards">
+            <div class="status-card malicious-card">
+                <div class="status-icon">🔴</div>
+                <div class="status-number">{{ malicious }}</div>
+                <div class="status-label">Malicious</div>
+            </div>
+
+            <div class="status-card clean-card">
+                <div class="status-icon">🟢</div>
+                <div class="status-number">{{ undetected }}</div>
+                <div class="status-label">Undetected</div>
+            </div>
+
+            <div class="status-card ratio-card">
+                <div class="status-icon">📊</div>
+                <div class="status-number">
+                    {{ malicious }} / {{ total }}
+                </div>
+                <div class="status-label">Detection Ratio</div>
+            </div>
+        </div>
+            {% set categories = file_data['data']['attributes']['last_analysis_results']
+            .values()
+            | map(attribute='category')
+            | unique
+            | list %}
+        <div class="filter-chips" id="scanFilter">
+            <button class="chip active"
+                    data-category="ALL"
+                    onclick="filterMalicious(this)">
+                All
+            </button>
+
+            {% for category in categories %}
+                <button class="chip"
+                        data-category="{{ category|lower }}"
+                        onclick="filterMalicious(this)">
+                    {{ category|title }}
+                </button>
+            {% endfor %}
         </div>
         <table border="1" id="scanDetailTable">
             <thead>
@@ -64,26 +159,44 @@
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="HIGH">HIGH</option>
                 </select>
-                <label for="matchDataToggle">Show Match Data:</label>
-                <input type="checkbox" id="matchDataToggle" onclick="toggleMatchData()">
             </div>
             <table border="1" id="behaviorTable">
                 <thead>
                     <tr>
-                        <th>Name</th>
+                        <th width="120">Severity</th>
+                        <th width="220">Rule</th>
                         <th>Description</th>
-                        <th>Match Data</th>
-                        <th>Severity</th>
+                        <th width="120"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for behavior in behavior_data['data']['signature_matches'] %}
-                        <tr>
-                            <td>{{ behavior['name'] }}</td>
-                            <td>{{ behavior['description'] }}</td>
-                            <td>{{ behavior['match_data'] }}</td>
-                            <td class="{{ behavior['severity'] }}">{{ behavior['severity'] }}</td>
-                        </tr>
+                    <tr class="behavior-row" data-severity="{{ behavior['severity'] }}">
+                        <td class="{{ behavior['severity'] }}">
+                            {{ behavior['severity'] }}
+                        </td>
+                        <td>
+                            {{ behavior['name'] }}
+                        </td>
+                        <td>
+                            {{ behavior['description'] }}
+                        </td>
+                        <td class="expand-column">
+                            <button
+                                class="expand-btn"
+                                onclick="toggleDetails(this)">
+                                ▼ Details
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="details-row">
+                        <td colspan="4">
+                            <div class="details-content">
+                                <strong>Match Data</strong>
+                                <pre>{{ behavior['match_data'] }}</pre>
+                            </div>
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -94,61 +207,77 @@
     </div>
 </body>
 <script>
+    function copyHash(hash, button) {
+        navigator.clipboard.writeText(hash).then(() => {
+
+            const originalText = button.textContent;
+
+            button.textContent = "Copied!";
+            button.classList.add("copied");
+            button.disabled = true;
+
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove("copied");
+                button.disabled = false;
+            }, 2000);
+
+        }).catch(err => {
+            console.error("Failed to copy:", err);
+        });
+    }
     function filterTable() {
-        var severity = document.getElementById("severityFilter").value;
-        var table = document.getElementById("behaviorTable");
-        var rows = table.getElementsByTagName("tr");
+        const severity = document.getElementById("severityFilter").value;
+        document.querySelectorAll(".behavior-row").forEach(row => {
+            const detailRow = row.nextElementSibling;
 
-        for (var i = 1; i < rows.length; i++) {
-            var cells = rows[i].getElementsByTagName("td");
-            var severityCell = cells[3];
-            if (severity === "ALL" || severityCell.textContent === severity) {
-                rows[i].style.display = "";
+            if (severity === "ALL" || row.dataset.severity === severity) {
+                row.style.display = "";
             } else {
-                rows[i].style.display = "none";
-            }
-        }
-    }
-    function filterMalicious() {
-        var checkbox = document.getElementById("maliciousFilter");
-        var table = document.getElementById("scanDetailTable");
-        var rows = table.getElementsByTagName("tr");
+                row.style.display = "none";
+                detailRow.style.display = "none";
 
-        for (var i = 1; i < rows.length; i++) {
-            var cells = rows[i].getElementsByTagName("td");
-            var categoryCell = cells[1];
-            if (checkbox.checked) {
-                if (categoryCell.textContent.toLowerCase() === "malicious") {
-                    rows[i].style.display = "";
-                } else {
-                    rows[i].style.display = "none";
+                const button = row.querySelector(".expand-btn");
+                if (button) {
+                    button.textContent = "▼ Details";
                 }
+            }
+        });
+    }
+    function filterMalicious(button) {
+        const category = button.dataset.category;
+
+        // Update active chip
+        document.querySelectorAll("#scanFilter .chip").forEach(chip => {
+            chip.classList.remove("active");
+        });
+
+        button.classList.add("active");
+
+        // Filter table
+        const rows = document.querySelectorAll("#scanDetailTable tbody tr");
+
+        rows.forEach(row => {
+            const rowCategory = row.cells[1].textContent.trim().toLowerCase();
+
+            if (category === "ALL" || rowCategory === category) {
+                row.style.display = "";
             } else {
-                rows[i].style.display = "";
+                row.style.display = "none";
             }
+        });
+    }
+    function toggleDetails(button) {
+        const detailRow = button.closest("tr").nextElementSibling;
+        const isVisible = detailRow.style.display === "table-row";
+
+        if (isVisible) {
+            detailRow.style.display = "none";
+            button.textContent = "▼ Details";
+        } else {
+            detailRow.style.display = "table-row";
+            button.textContent = "▲ Hide";
         }
     }
-    function toggleMatchData() {
-        var checkbox = document.getElementById("matchDataToggle");
-        var table = document.getElementById("behaviorTable");
-        var rows = table.getElementsByTagName("tr");
-
-        // Toggle the header cell for Match Data
-        var header = table.getElementsByTagName("thead")[0];
-        var headerCells = header.getElementsByTagName("th");
-        if (headerCells.length > 2) {
-            var matchDataHeaderCell = headerCells[2];
-            matchDataHeaderCell.style.display = checkbox.checked ? "" : "none";
-        }
-
-        // Toggle the body cells for Match Data
-        for (var i = 0; i < rows.length; i++) {
-            var cells = rows[i].getElementsByTagName("td");
-            if (cells.length > 2) {
-                cells[2].style.display = checkbox.checked ? "" : "none";
-            }
-        }
-    }
-    toggleMatchData();
 </script>
 </html>
