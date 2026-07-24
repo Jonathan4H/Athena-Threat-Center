@@ -11,10 +11,36 @@
         <h1>Athena Threat Center</h1>
     </header>
     <div class="container">
-        <div class="summary-card">
-            <div class="summary-header">
-                <div class="file-info">
-                    <h2>
+        {% set stats = file_data['data']['attributes']['last_analysis_stats'] %}
+        {% set malicious = stats['malicious'] %}
+        {% set undetected = stats['undetected'] %}
+        {% set total = stats.values() | sum %}
+        {% set threat_percent = ((malicious / 15) * 100) if malicious < 15 else 100 %}
+
+        {% if malicious == 0 %}
+            {% set verdict = "CLEAN" %}
+            {% set verdict_class = "clean" %}
+            {% set verdict_icon = "🟢" %}
+        {% else %}
+            {% set verdict = "MALICIOUS" %}
+            {% set verdict_class = "malicious" %}
+            {% set verdict_icon = "🔴" %}
+        {% endif %}
+
+        {% if malicious == 0 %}
+            {% set threat_class = "safe" %}
+        {% elif malicious <= 5 %}
+            {% set threat_class = "low" %}
+        {% elif malicious <= 15 %}
+            {% set threat_class = "medium" %}
+        {% else %}
+            {% set threat_class = "high" %}
+        {% endif %}
+
+        <div class="hero-card">
+            <div class="hero-top">
+                <div>
+                    <h2 class="hero-file">
                         📄
                         {% if filename %}
                             {{ filename }}
@@ -22,145 +48,232 @@
                             {{ file_data['data']['attributes']['sha256'][:12] }}...
                         {% endif %}
                     </h2>
-                    <p class="file-type">
+
+                    <p class="hero-type">
                         {{ file_data['data']['attributes']['type_description'] }}
                     </p>
                 </div>
 
-                <div class="scan-status">
-                    {% if file_data['data']['attributes']['last_analysis_stats']['malicious'] > 0 %}
-                        <span class="status malicious">
-                            ⚠ Malicious
-                        </span>
+                <span class="hero-status {{ verdict_class }}">
+                    {{ verdict_icon }} {{ verdict }}
+                </span>
+            </div>
+
+            <div class="hero-detection">
+                <div class="hero-ratio">
+                    {{ malicious }} / {{ total }}
+                </div>
+
+                <div class="hero-text">
+                    engines detected this file
+                </div>
+            </div>
+
+            <div class="threat-score">
+                <div class="threat-score-header">
+                    <span>Threat Score</span>
+                    <span>{{ "%.1f"|format(threat_percent) }}%</span>
+                </div>
+
+                <div class="threat-scale">
+                    <span>Safe</span>
+                    <span>Dangerous</span>
+                </div>
+
+                <div class="progress-bar">
+                    <div
+                        class="progress-fill {{ threat_class }}"
+                        style="width: {{ threat_percent }}%;">
+                    </div>
+                </div>
+
+                <div class="threat-level {{ threat_class }}">
+                    {% if threat_class == "safe" %}
+                        SAFE
+                    {% elif threat_class == "low" %}
+                        LOW RISK
+                    {% elif threat_class == "medium" %}
+                        MEDIUM RISK
                     {% else %}
-                        <span class="status clean">
-                            ✓ Clean
-                        </span>
+                        HIGH RISK
                     {% endif %}
                 </div>
             </div>
 
-            <div class="summary-grid">
-                <div class="summary-item">
+            <div class="hero-details">
+                <div>
                     <span class="label">Type</span>
-                    <span>{{ file_data['data']['attributes']['type_description'] }}</span>
+                    <strong>{{ file_data['data']['attributes']['type_description'] }}</strong>
                 </div>
 
-                <div class="summary-item">
+                <div>
                     <span class="label">Size</span>
-                    <span>
-                        {{ "{:,.2f}".format(file_data['data']['attributes']['size'] / 1024 / 1024) }} MB
-                    </span>
+                    <strong>
+                        {{ "{:,.2f}".format(file_data['data']['attributes']['size'] / 1024 / 1024) }}
+                        MB
+                    </strong>
                 </div>
 
-                <div class="summary-item hash-row">
+                <div>
                     <span class="label">SHA256</span>
-
-                    <span id="sha256Text">
-                        {{ file_data['data']['attributes']['sha256'][:12] }}...
-                        {{ file_data['data']['attributes']['sha256'][-12:] }}
-                    </span>
-
-                    <button
-                        class="copy-btn"
-                        onclick="copyHash('{{ file_data['data']['attributes']['sha256'] }}', this)">
-                        Copy
-                    </button>
-                </div>
-
-                <div class="summary-item hash-row">
-                    <span class="label">MD5</span>
-
-                    <span id="md5Text">
-                        {{ file_data['data']['attributes']['md5'] }}
-                    </span>
-
-                    <button
-                        class="copy-btn"
-                        onclick="copyHash('{{ file_data['data']['attributes']['md5'] }}', this)">
-                        Copy
-                    </button>
+                    <code>
+                        {{ file_data['data']['attributes']['sha256'][:10] }}...
+                    </code>
                 </div>
             </div>
         </div>
-        
-        {% set stats = file_data['data']['attributes']['last_analysis_stats'] %}
-        {% set malicious = stats['malicious'] %}
-        {% set undetected = stats['undetected'] %}
-        {% set total = stats.values() | sum %}
+        {% set scan_results = file_data['data']['attributes']['last_analysis_results'] %}
 
-        <div class="status-cards">
-            <div class="status-card malicious-card">
-                <div class="status-icon">🔴</div>
-                <div class="status-number">{{ malicious }}</div>
-                <div class="status-label">Malicious</div>
-            </div>
+        {% set malicious_results = [] %}
+        {% set suspicious_results = [] %}
+        {% set undetected_results = [] %}
+        {% set harmless_results = [] %}
+        {% set timeout_results = [] %}
+        {% set failure_results = [] %}
+        {% set other_results = [] %}
 
-            <div class="status-card clean-card">
-                <div class="status-icon">🟢</div>
-                <div class="status-number">{{ undetected }}</div>
-                <div class="status-label">Undetected</div>
-            </div>
+        {% for engine, result in scan_results.items() %}
+            {% set item = {'engine': engine, 'result': result} %}
 
-            <div class="status-card ratio-card">
-                <div class="status-icon">📊</div>
-                <div class="status-number">
-                    {{ malicious }} / {{ total }}
-                </div>
-                <div class="status-label">Detection Ratio</div>
-            </div>
-        </div>
-            {% set categories = file_data['data']['attributes']['last_analysis_results']
-            .values()
-            | map(attribute='category')
-            | unique
-            | list %}
-        <div class="filter-chips" id="scanFilter">
-            <button class="chip active"
-                    data-category="ALL"
-                    onclick="filterMalicious(this)">
-                All
-            </button>
+            {% if result['category'] == 'malicious' %}
+                {% set _ = malicious_results.append(item) %}
+            {% elif result['category'] == 'suspicious' %}
+                {% set _ = suspicious_results.append(item) %}
+            {% elif result['category'] == 'undetected' %}
+                {% set _ = undetected_results.append(item) %}
+            {% elif result['category'] == 'harmless' %}
+                {% set _ = harmless_results.append(item) %}
+            {% elif result['category'] == 'timeout' %}
+                {% set _ = timeout_results.append(item) %}
+            {% elif result['category'] == 'failure' %}
+                {% set _ = failure_results.append(item) %}
+            {% else %}
+                {% set _ = other_results.append(item) %}
+            {% endif %}
+        {% endfor %}
+        <div class="scan-groups">
 
-            {% for category in categories %}
-                <button class="chip"
-                        data-category="{{ category|lower }}"
-                        onclick="filterMalicious(this)">
-                    {{ category|title }}
+            {% macro render_group(title, icon, css, items) %}
+
+            {% if items|length > 0 %}
+
+            <div class="scan-group">
+                <button class="scan-group-header"
+                        onclick="toggleScanGroup(this)">
+
+                    <div>
+                        <span class="scan-icon">{{ icon }}</span>
+
+                        <span class="scan-title">
+                            {{ title }}
+                        </span>
+
+                        <span class="scan-count">
+                            {{ items|length }}
+                        </span>
+                    </div>
+
+                    <span class="scan-arrow">
+                        ▼
+                    </span>
                 </button>
-            {% endfor %}
+
+                <div class="scan-group-content">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Engine</th>
+                            <th>Detection</th>
+                        </tr>
+                        </thead>
+
+                        <tbody>
+
+                        {% for item in items %}
+
+                        <tr>
+                            <td class="engine-name">
+                                {{ item.engine }}
+                            </td>
+
+                            <td>
+                                {% if item.result.result %}
+                                    {{ item.result.result }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+
+                        {% endfor %}
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% endif %}
+
+            {% endmacro %}
+
+            {{ render_group("Malicious", "🔴", "malicious", malicious_results) }}
+            {{ render_group("Suspicious", "🟠", "suspicious", suspicious_results) }}
+            {{ render_group("Undetected", "🟢", "undetected", undetected_results) }}
+            {{ render_group("Harmless", "🟢", "harmless", harmless_results) }}
+            {{ render_group("Timeout", "⚪", "timeout", timeout_results) }}
+            {{ render_group("Failure", "🟣", "failure", failure_results) }}
+            {{ render_group("Other", "🔹", "other", other_results) }}
         </div>
-        <table border="1" id="scanDetailTable">
-            <thead>
-                <tr>
-                    <th>Engine</th>
-                    <th>Category</th>
-                    <th>Result</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for engine, result in file_data['data']['attributes']['last_analysis_results'].items() %}
-                    <tr>
-                        <td>{{ engine }}</td>
-                        <td>{{ result['category'] }}</td>
-                        <td>{{ result['result'] }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
         {% if behavior_data %}
         <h2>Behavior Data</h2>
+            {% set signatures = behavior_data['data']['signature_matches'] %}
+
+            {% set info_count = signatures | selectattr("severity", "equalto", "INFO") | list | length %}
+            {% set low_count = signatures | selectattr("severity", "equalto", "LOW") | list | length %}
+            {% set medium_count = signatures | selectattr("severity", "equalto", "MEDIUM") | list | length %}
+            {% set high_count = signatures | selectattr("severity", "equalto", "HIGH") | list | length %}
             <div class="filter-container">
-                <label for="severityFilter">Filter by severity:</label>
-                <select id="severityFilter" onchange="filterTable()">
-                    <option value="ALL">All</option>
-                    <option value="INFO">INFO</option>
-                    <option value="LOW">LOW</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HIGH">HIGH</option>
-                </select>
+                <span class="filter-title">
+                    Severity
+                </span>
+                <div class="severity-buttons">
+                    <button class="severity-btn active"
+                            data-severity="ALL"
+                            onclick="filterTable(this)">
+                        All
+                        <span>{{ signatures|length }}</span>
+                    </button>
+
+                    <button class="severity-btn high"
+                            data-severity="HIGH"
+                            onclick="filterTable(this)">
+                        HIGH
+                        <span>{{ high_count }}</span>
+                    </button>
+
+                    <button class="severity-btn medium"
+                            data-severity="MEDIUM"
+                            onclick="filterTable(this)">
+                        MEDIUM
+                        <span>{{ medium_count }}</span>
+                    </button>
+
+                    <button class="severity-btn low"
+                            data-severity="LOW"
+                            onclick="filterTable(this)">
+                        LOW
+                        <span>{{ low_count }}</span>
+                    </button>
+
+                    <button class="severity-btn info"
+                            data-severity="INFO"
+                            onclick="filterTable(this)">
+                        INFO
+                        <span>{{ info_count }}</span>
+                    </button>
+                </div>
             </div>
-            <table border="1" id="behaviorTable">
+            <table id="behaviorTable">
                 <thead>
                     <tr>
                         <th width="120">Severity</th>
@@ -203,10 +316,94 @@
         {% else %}
             <p>No behavior data available for this file.</p>
         {% endif %}
+        <div class="technical-section">
+            <button class="technical-header"
+                    onclick="toggleTechnical(this)">
+                <span>🔧 Technical Details</span>
+                <span class="technical-arrow">▼</span>
+            </button>
+
+            <div class="technical-content">
+                <div class="technical-row">
+                    <span class="technical-label">
+                        SHA256
+                    </span>
+                    <div class="technical-value">
+                        <code>
+                            {{ file_data['data']['attributes']['sha256'] }}
+                        </code>
+                        <button
+                            class="copy-btn"
+                            onclick="copyHash('{{ file_data['data']['attributes']['sha256'] }}', this)">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <div class="technical-row">
+                    <span class="technical-label">
+                        MD5
+                    </span>
+                    <div class="technical-value">
+                        <code>
+                            {{ file_data['data']['attributes']['md5'] }}
+                        </code>
+                        <button
+                            class="copy-btn"
+                            onclick="copyHash('{{ file_data['data']['attributes']['md5'] }}', this)">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <a href="/">Upload another file</a>
     </div>
 </body>
 <script>
+    function toggleScanGroup(button){
+        const group = button.parentElement;
+        group.classList.toggle("open");
+    }
+    function filterTable(button) {
+        const severity = button.dataset.severity;
+        document.querySelectorAll(".severity-btn").forEach(btn => {
+            btn.classList.remove("active");
+        });
+        button.classList.add("active");
+        document.querySelectorAll(".behavior-row").forEach(row => {
+            const detailRow = row.nextElementSibling;
+            const visible =
+                severity === "ALL" ||
+                row.dataset.severity === severity;
+            row.style.display = visible ? "" : "none";
+
+            if (!visible) {
+                detailRow.style.display = "none";
+                const expandBtn = row.querySelector(".expand-btn");
+
+                if (expandBtn) {
+                    expandBtn.textContent = "▼ Details";
+                }
+            }
+        });
+    }
+    function toggleDetails(button) {
+        const detailRow = button.closest("tr").nextElementSibling;
+        const isVisible = detailRow.style.display === "table-row";
+
+        if (isVisible) {
+            detailRow.style.display = "none";
+            button.textContent = "▼ Details";
+        } else {
+            detailRow.style.display = "table-row";
+            button.textContent = "▲ Hide";
+        }
+    }
+    function toggleTechnical(button){
+        const section = button.parentElement;
+        section.classList.toggle("open");
+    }
     function copyHash(hash, button) {
         navigator.clipboard.writeText(hash).then(() => {
 
@@ -226,58 +423,14 @@
             console.error("Failed to copy:", err);
         });
     }
-    function filterTable() {
-        const severity = document.getElementById("severityFilter").value;
-        document.querySelectorAll(".behavior-row").forEach(row => {
-            const detailRow = row.nextElementSibling;
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".scan-group").forEach(group => {
+            const title = group.querySelector(".scan-title").textContent.trim();
 
-            if (severity === "ALL" || row.dataset.severity === severity) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-                detailRow.style.display = "none";
-
-                const button = row.querySelector(".expand-btn");
-                if (button) {
-                    button.textContent = "▼ Details";
-                }
+            if(title === "Malicious" || title === "Suspicious"){
+                group.classList.add("open");
             }
         });
-    }
-    function filterMalicious(button) {
-        const category = button.dataset.category;
-
-        // Update active chip
-        document.querySelectorAll("#scanFilter .chip").forEach(chip => {
-            chip.classList.remove("active");
-        });
-
-        button.classList.add("active");
-
-        // Filter table
-        const rows = document.querySelectorAll("#scanDetailTable tbody tr");
-
-        rows.forEach(row => {
-            const rowCategory = row.cells[1].textContent.trim().toLowerCase();
-
-            if (category === "ALL" || rowCategory === category) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-            }
-        });
-    }
-    function toggleDetails(button) {
-        const detailRow = button.closest("tr").nextElementSibling;
-        const isVisible = detailRow.style.display === "table-row";
-
-        if (isVisible) {
-            detailRow.style.display = "none";
-            button.textContent = "▼ Details";
-        } else {
-            detailRow.style.display = "table-row";
-            button.textContent = "▲ Hide";
-        }
-    }
+    });
 </script>
 </html>
