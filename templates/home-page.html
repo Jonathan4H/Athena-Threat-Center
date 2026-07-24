@@ -49,6 +49,11 @@
                         <span>or click to browse</span>
                     </label>
 
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}">
+
                     <input 
                         type="file"
                         name="upload"
@@ -78,10 +83,6 @@
             </div>
         </section>
     </main>
-    <div class="loader" id="loader" hidden>
-        <div class="spinner"></div>
-        <p>Analyzing malware sample...</p>
-    </div>
 </body>
 <script>
     const burger = document.querySelector('.burger');
