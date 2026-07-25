@@ -117,7 +117,6 @@
 
     // Show loader on form submit
     const form = document.getElementById('upload-form');
-    const loader = document.getElementById('loader');
 
     // File selection
     fileInput.addEventListener('change', () => {
@@ -128,15 +127,26 @@
     });
 
     // Drag & Drop
+    const dropzone = document.getElementById('dropzone');
+
+    // Drag enters the dropzone
+    dropzone.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    // Dragging over the dropzone
     dropzone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropzone.classList.add('dragover');
     });
 
+    // Drag leaves the dropzone
     dropzone.addEventListener('dragleave', () => {
         dropzone.classList.remove('dragover');
     });
 
+    // File dropped
     dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropzone.classList.remove('dragover');
@@ -150,14 +160,12 @@
 
     // Submit loader
     form.addEventListener('submit', () => {
-        loader.hidden = false;
         submitBtn.disabled = true;
         submitBtn.textContent = "Analyzing...";
     });
 
     // Error recovery
     window.addEventListener('error', () => {
-        loader.hidden = true;
         submitBtn.disabled = false;
         submitBtn.textContent = "Analyze Sample";
     });

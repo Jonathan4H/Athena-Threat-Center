@@ -102,11 +102,6 @@
 
             <div class="hero-details">
                 <div>
-                    <span class="label">Type</span>
-                    <strong>{{ file_data['data']['attributes']['type_description'] }}</strong>
-                </div>
-
-                <div>
                     <span class="label">Size</span>
                     <strong>
                         {{ "{:,.2f}".format(file_data['data']['attributes']['size'] / 1024 / 1024) }}
@@ -390,7 +385,7 @@
     }
     function toggleDetails(button) {
         const detailRow = button.closest("tr").nextElementSibling;
-        const isVisible = detailRow.style.display === "table-row";
+        const isVisible = window.getComputedStyle(detailRow).display === "table-row";
 
         if (isVisible) {
             detailRow.style.display = "none";
@@ -425,7 +420,9 @@
     }
     document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".scan-group").forEach(group => {
-            const title = group.querySelector(".scan-title").textContent.trim();
+            const titleElement = group.querySelector(".scan-title");
+            if (!titleElement) return;
+            const title = titleElement.textContent.trim();
 
             if(title === "Malicious" || title === "Suspicious"){
                 group.classList.add("open");
