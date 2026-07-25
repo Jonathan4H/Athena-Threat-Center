@@ -3,7 +3,6 @@ from flask_wtf.csrf import CSRFProtect
 from flask_wtf.csrf import CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_login import current_user
 from werkzeug.exceptions import RequestEntityTooLarge
 import requests
 import time
@@ -11,16 +10,16 @@ import logging
 import config
 import hashlib
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
-def rate_limit_key():
-    if current_user.is_authenticated:
-        return f"user:{current_user.id}"
-    return get_remote_address()
-
 limiter = Limiter(
-    key_func=rate_limit_key,
+    key_func=get_remote_address,
     app=app,
     default_limits=["200 per day", "50 per hour"],
     storage_uri="memory://"
@@ -88,31 +87,27 @@ def calculate_sha256(file):
 def validate_upload(file):
     """
     Perform basic validation before hashing or uploading.
-    Returns None if the file is valid,
-    otherwise returns an error message.
+
+    Returns:
+        (None, file_size) if the file is valid.
+        (error_message, None) otherwise.
     """
 
     if file is None:
-        return "No file was uploaded."
+        return "No file was uploaded.", None
 
     if not file.filename:
-        return "Please choose a file."
+        return "Please choose a file.", None
 
-    # Determine file size
+    # Determine file size once
     file.stream.seek(0, 2)
     size = file.stream.tell()
     file.stream.seek(0)
 
     if size == 0:
-        return "The selected file is empty."
+        return "The selected file is empty.", None
 
-    if size > MAX_UPLOAD_SIZE:
-        return (
-            f"File exceeds the maximum allowed size "
-            f"({MAX_UPLOAD_SIZE // (1024 * 1024)} MB)."
-        )
-
-    return None
+    return None, size
 
 def vt_get_file(sha256):
     return session.get(
@@ -120,19 +115,13 @@ def vt_get_file(sha256):
         timeout=15
     )
 
-def vt_post_file(file):
-    file.stream.seek(0)
-
-    file.stream.seek(0, 2)
-    size = file.stream.tell()
-    file.stream.seek(0)
-
+def vt_post_file(file, file_size):
     files = {
-        "file": (file.filename, file.stream, file.content_type)
+        "file": (file.filename, file.stream, file.content_type or "application/octet-stream")
     }
 
     # <=32 MB
-    if size <= 32 * 1024 * 1024:
+    if file_size <= 32 * 1024 * 1024:
         return session.post(
             f"{VT_BASE_URL}/files",
             files=files,
@@ -141,8 +130,12 @@ def vt_post_file(file):
 
     # >32 MB
     upload_url = session.get(
-        f"{VT_BASE_URL}/files/upload_url"
+        f"{VT_BASE_URL}/files/upload_url",
+        timeout=15
     )
+
+    if handle_vt_rate_limit(upload_url):
+        return upload_url
 
     upload_url.raise_for_status()
 
@@ -174,21 +167,32 @@ def poll_analysis(analysis_id, timeout=180):
         if response.status_code == 429:
             return None, 429
 
-        print("Status:", response.status_code)
-        print("Body:", response.text)
-
         if response.status_code != 200:
             return None, response.status_code
 
         data = response.json()
         status = data["data"]["attributes"]["status"]
 
-        print("Analysis status:", status)
+        logging.debug(
+            "VirusTotal analysis %s status: %s",
+            analysis_id,
+            status,
+        )
 
         if status == "completed":
+            logging.debug(
+                "VirusTotal analysis %s completed.",
+                analysis_id,
+            )
             return data, 200
 
         time.sleep(5)
+
+    logging.warning(
+        "VirusTotal analysis %s timed out after %d seconds.",
+        analysis_id,
+        timeout,
+    )
 
     return None, 408
 
@@ -200,17 +204,23 @@ def normalize_behavior_signatures(signatures):
         "IMPACT_SEVERITY_INFO": "INFO"
     }
 
-    for sig in signatures:
-        sig["severity"] = severity_map.get(sig.get("severity"), "UNKNOWN")
-
-    return signatures
+    return [
+        {
+            **sig,
+            "severity": severity_map.get(
+                sig.get("severity"),
+                "UNKNOWN",
+            ),
+        }
+        for sig in signatures
+    ]
 
 @app.route("/upload", methods=["POST"])
 @limiter.limit("30 per hour")
 def upload_file():
     file = request.files.get("upload")
 
-    error = validate_upload(file)
+    error, file_size = validate_upload(file)
 
     if error:
         flash(error)
@@ -221,7 +231,7 @@ def upload_file():
         # Compute hash
         # ---------------------------------
         sha256 = calculate_sha256(file)
-        print("SHA256:", sha256)
+        logging.debug("Computed SHA-256: %s", sha256)
 
         # ---------------------------------
         # Does VT already know this file?
@@ -230,11 +240,11 @@ def upload_file():
         if handle_vt_rate_limit(file_response):
             return redirect(url_for("index"))
         elif file_response.status_code == 200:
-            print("Existing report found.")
+            logging.info("Existing VirusTotal report found for %s.", sha256)
             file_data = file_response.json()
         elif file_response.status_code == 404:
-            print("Uploading new sample...")
-            upload_response = vt_post_file(file)
+            logging.info("Uploading new sample '%s' to VirusTotal.", file.filename)
+            upload_response = vt_post_file(file, file_size)
             if handle_vt_rate_limit(upload_response):
                 return redirect(url_for("index"))
 
@@ -256,9 +266,9 @@ def upload_file():
                 return redirect(url_for("index"))
 
             analysis_id = upload_response.json()["data"]["id"]
-            print("Analysis:", analysis_id)
+            logging.debug("VirusTotal analysis ID: %s", analysis_id)
 
-            analysis,status = poll_analysis(analysis_id)
+            _,status = poll_analysis(analysis_id)
 
             if status == 429:
                 flash(
@@ -267,36 +277,77 @@ def upload_file():
                     "Please try again later."
                 )
                 return redirect(url_for("index"))
-            elif analysis is None:
+            elif status == 408:
                 flash("VirusTotal analysis timed out.")
                 return redirect(url_for("index"))
+            elif status != 200:
+                flash("VirusTotal analysis failed.")
+                return redirect(url_for("index"))
+            # ---------------------------------
             # Retrieve final report
-            file_response = vt_get_file(sha256)
-            if handle_vt_rate_limit(file_response):
+            # VirusTotal may take a few seconds
+            # to make the completed report available.
+            # Retry on 404 before giving up.
+            # ---------------------------------
+            max_retries = 5
+            retry_delay = 2  # seconds
+
+            for attempt in range(max_retries):
+                file_response = vt_get_file(sha256)
+
+                if handle_vt_rate_limit(file_response):
+                    return redirect(url_for("index"))
+
+                if file_response.status_code == 200:
+                    file_data = file_response.json()
+                    break
+
+                # Report not yet available despite completed analysis.
+                if file_response.status_code == 404:
+                    logging.info(
+                        "Report not yet available for %s "
+                        "(attempt %d/%d). Retrying...",
+                        sha256,
+                        attempt + 1,
+                        max_retries,
+                    )
+
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+
+                # Any other error (or retries exhausted)
+                flash("Could not retrieve the completed VirusTotal report.")
                 return redirect(url_for("index"))
-            elif not file_response.ok:
-                flash("Could not retrieve completed report.")
-                return redirect(url_for("index"))
-            file_data = file_response.json()
         else:
             flash("VirusTotal lookup failed.")
             return redirect(url_for("index"))
-        attributes = file_data["data"]["attributes"]
-        stats = attributes["last_analysis_stats"]
-        malicious_count = stats["malicious"]
+        attributes = (
+            file_data
+            .get("data", {})
+            .get("attributes")
+        )
+        if attributes is None:
+            flash("Unexpected VirusTotal response.")
+            return redirect(url_for("index"))
+        stats = attributes.get("last_analysis_stats")
+        if not stats:
+            flash("VirusTotal report is incomplete.")
+            return redirect(url_for("index"))
+        malicious_count = stats.get("malicious", 0)
         behavior_data = None
         behavior_response = vt_get_behavior(sha256)
         if handle_vt_rate_limit(behavior_response):
             return redirect(url_for("index"))
+        elif behavior_response.status_code == 404:
+            behavior_data = None
         elif behavior_response.ok:
             behavior_data = behavior_response.json()
-            signatures = (
-                behavior_data
-                .get("data", {})
-                .get("signature_matches", [])
-            )
-            behavior_data["data"]["signature_matches"] = \
-                normalize_behavior_signatures(signatures)
+            data = behavior_data.get("data")
+            if data:
+                data["signature_matches"] = normalize_behavior_signatures(
+                    data.get("signature_matches", [])
+                )
 
         return render_template(
             "result.html",
@@ -306,27 +357,25 @@ def upload_file():
         )
 
     except requests.Timeout:
-        logging.error("VirusTotal request timeout")
+        logging.exception("VirusTotal timeout")
         flash("VirusTotal timeout")
 
-    except requests.RequestException as e:
-        import traceback
-        traceback.print_exc()
-        print("Network error:", repr(e))
-        flash(f"Network error: {e}")
+    except requests.RequestException:
+        logging.exception("Network error communicating with VirusTotal.")
+        flash("Unable to communicate with VirusTotal. Please try again later.")
         return redirect(url_for("index"))
 
-    except Exception as e:
-        logging.exception(f"Unexpected error: {e}")
+    except Exception:
+        logging.exception("Unexpected error")
         flash("Unexpected server error")
 
     return redirect(url_for("index"))
 
 @app.errorhandler(429)
-def ratelimit_handler():
+def ratelimit_handler(error):
     logging.warning(
-        "Upload rate limit exceeded from IP: %s",
-        get_remote_address()
+        "Rate limit exceeded: %s",
+        error
     )
 
     flash(
