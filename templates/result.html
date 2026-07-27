@@ -71,7 +71,7 @@
                 <div>
                     <span class="label">Size</span>
                     <strong>
-                        {{ "{:,.2f}".format(attributes.size / 1024 / 1024) }}
+                        {{ size_mb }}
                         MB
                     </strong>
                 </div>
@@ -339,7 +339,7 @@
             row.style.display = visible ? "" : "none";
 
             if (!visible) {
-                detailRow.style.display = "none";
+                detailRow.classList.remove("open");
                 const expandBtn = row.querySelector(".expand-btn");
 
                 if (expandBtn) {
