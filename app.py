@@ -4,6 +4,7 @@ from flask_wtf.csrf import CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import RequestEntityTooLarge
+from collections import Counter
 import requests
 import time
 import logging
@@ -77,7 +78,7 @@ def calculate_sha256(file):
 
     file.stream.seek(0)
 
-    while chunk := file.stream.read(8192):
+    while chunk := file.stream.read(65536):
         sha256.update(chunk)
 
     file.stream.seek(0)
@@ -215,6 +216,82 @@ def normalize_behavior_signatures(signatures):
         for sig in signatures
     ]
 
+def get_severity_counts(signatures):
+    """
+    Count the number of behavior signatures for each severity.
+    """
+    counts = Counter(sig.get("severity", "UNKNOWN") for sig in signatures)
+
+    return {
+        "HIGH": counts.get("HIGH", 0),
+        "MEDIUM": counts.get("MEDIUM", 0),
+        "LOW": counts.get("LOW", 0),
+        "INFO": counts.get("INFO", 0),
+        "UNKNOWN": counts.get("UNKNOWN", 0),
+        "ALL": len(signatures),
+    }
+
+def build_scan_summary(attributes):
+    stats = attributes["last_analysis_stats"]
+
+    malicious = stats.get("malicious", 0)
+    total = sum(stats.values())
+
+    threat_percent = min((malicious / 15) * 100, 100)
+
+    if malicious == 0:
+        verdict = {
+            "text": "CLEAN",
+            "icon": "🟢",
+            "css": "clean",
+        }
+        threat = {
+            "class": "safe",
+            "label": "SAFE",
+        }
+
+    elif malicious <= 5:
+        verdict = {
+            "text": "MALICIOUS",
+            "icon": "🔴",
+            "css": "malicious",
+        }
+        threat = {
+            "class": "low",
+            "label": "LOW RISK",
+        }
+
+    elif malicious <= 15:
+        verdict = {
+            "text": "MALICIOUS",
+            "icon": "🔴",
+            "css": "malicious",
+        }
+        threat = {
+            "class": "medium",
+            "label": "MEDIUM RISK",
+        }
+
+    else:
+        verdict = {
+            "text": "MALICIOUS",
+            "icon": "🔴",
+            "css": "malicious",
+        }
+        threat = {
+            "class": "high",
+            "label": "HIGH RISK",
+        }
+
+    return {
+        "stats": stats,
+        "malicious": malicious,
+        "total": total,
+        "threat_percent": threat_percent,
+        "verdict": verdict,
+        "threat": threat,
+    }
+
 @app.route("/upload", methods=["POST"])
 @limiter.limit("30 per hour")
 def upload_file():
@@ -259,13 +336,15 @@ def upload_file():
                 return redirect(url_for("index"))
             elif not upload_response.ok:
                 try:
-                    message = upload_response.json()["error"]["message"]
-                except Exception:
+                    upload_json = upload_response.json()
+                    message = upload_json["error"]["message"]
+                except (ValueError, KeyError, TypeError):
                     message = upload_response.text
                 flash(message)
                 return redirect(url_for("index"))
 
-            analysis_id = upload_response.json()["data"]["id"]
+            upload_json = upload_response.json()
+            analysis_id = upload_json["data"]["id"]
             logging.debug("VirusTotal analysis ID: %s", analysis_id)
 
             _,status = poll_analysis(analysis_id)
@@ -330,11 +409,11 @@ def upload_file():
         if attributes is None:
             flash("Unexpected VirusTotal response.")
             return redirect(url_for("index"))
+        scan_summary = build_scan_summary(attributes)
         stats = attributes.get("last_analysis_stats")
         if not stats:
             flash("VirusTotal report is incomplete.")
             return redirect(url_for("index"))
-        malicious_count = stats.get("malicious", 0)
         behavior_data = None
         behavior_response = vt_get_behavior(sha256)
         if handle_vt_rate_limit(behavior_response):
@@ -344,16 +423,21 @@ def upload_file():
         elif behavior_response.ok:
             behavior_data = behavior_response.json()
             data = behavior_data.get("data")
+            severity_counts = None
             if data:
-                data["signature_matches"] = normalize_behavior_signatures(
-                    data.get("signature_matches", [])
-                )
+                signatures = data.get("signature_matches", [])
+
+                normalized = normalize_behavior_signatures(signatures)
+                data["signature_matches"] = normalized
+
+                severity_counts = get_severity_counts(normalized)
 
         return render_template(
             "result.html",
             file_data=file_data,
             behavior_data=behavior_data,
-            malicious_count=malicious_count
+            scan_summary=scan_summary,
+            severity_counts=severity_counts
         )
 
     except requests.Timeout:

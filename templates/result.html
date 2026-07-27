@@ -11,32 +11,6 @@
         <h1>Athena Threat Center</h1>
     </header>
     <div class="container">
-        {% set stats = file_data['data']['attributes']['last_analysis_stats'] %}
-        {% set malicious = stats['malicious'] %}
-        {% set undetected = stats['undetected'] %}
-        {% set total = stats.values() | sum %}
-        {% set threat_percent = ((malicious / 15) * 100) if malicious < 15 else 100 %}
-
-        {% if malicious == 0 %}
-            {% set verdict = "CLEAN" %}
-            {% set verdict_class = "clean" %}
-            {% set verdict_icon = "🟢" %}
-        {% else %}
-            {% set verdict = "MALICIOUS" %}
-            {% set verdict_class = "malicious" %}
-            {% set verdict_icon = "🔴" %}
-        {% endif %}
-
-        {% if malicious == 0 %}
-            {% set threat_class = "safe" %}
-        {% elif malicious <= 5 %}
-            {% set threat_class = "low" %}
-        {% elif malicious <= 15 %}
-            {% set threat_class = "medium" %}
-        {% else %}
-            {% set threat_class = "high" %}
-        {% endif %}
-
         <div class="hero-card">
             <div class="hero-top">
                 <div>
@@ -54,14 +28,15 @@
                     </p>
                 </div>
 
-                <span class="hero-status {{ verdict_class }}">
-                    {{ verdict_icon }} {{ verdict }}
+                <span class="hero-status {{ scan_summary.verdict.css }}">
+                    {{ scan_summary.verdict.icon }}
+                    {{ scan_summary.verdict.text }}
                 </span>
             </div>
 
             <div class="hero-detection">
                 <div class="hero-ratio">
-                    {{ malicious }} / {{ total }}
+                    {{ scan_summary.malicious }} / {{ scan_summary.total }}
                 </div>
 
                 <div class="hero-text">
@@ -72,7 +47,7 @@
             <div class="threat-score">
                 <div class="threat-score-header">
                     <span>Threat Score</span>
-                    <span>{{ "%.1f"|format(threat_percent) }}%</span>
+                    <span>{{ "%.1f"|format(scan_summary.threat_percent) }}%</span>
                 </div>
 
                 <div class="threat-scale">
@@ -82,21 +57,13 @@
 
                 <div class="progress-bar">
                     <div
-                        class="progress-fill {{ threat_class }}"
-                        style="width: {{ threat_percent }}%;">
+                        class="progress-fill {{ scan_summary.threat.class }}"
+                        style="width: {{ scan_summary.threat_percent }}%;">
                     </div>
                 </div>
 
-                <div class="threat-level {{ threat_class }}">
-                    {% if threat_class == "safe" %}
-                        SAFE
-                    {% elif threat_class == "low" %}
-                        LOW RISK
-                    {% elif threat_class == "medium" %}
-                        MEDIUM RISK
-                    {% else %}
-                        HIGH RISK
-                    {% endif %}
+                <div class="threat-level {{ scan_summary.threat.class }}">
+                    {{ scan_summary.threat.label }}
                 </div>
             </div>
 
@@ -222,11 +189,6 @@
         {% if behavior_data %}
         <h2>Behavior Data</h2>
             {% set signatures = behavior_data['data']['signature_matches'] %}
-
-            {% set info_count = signatures | selectattr("severity", "equalto", "INFO") | list | length %}
-            {% set low_count = signatures | selectattr("severity", "equalto", "LOW") | list | length %}
-            {% set medium_count = signatures | selectattr("severity", "equalto", "MEDIUM") | list | length %}
-            {% set high_count = signatures | selectattr("severity", "equalto", "HIGH") | list | length %}
             <div class="filter-container">
                 <span class="filter-title">
                     Severity
@@ -236,35 +198,35 @@
                             data-severity="ALL"
                             onclick="filterTable(this)">
                         All
-                        <span>{{ signatures|length }}</span>
+                        <span>{{ severity_counts.ALL }}</span>
                     </button>
 
                     <button class="severity-btn high"
                             data-severity="HIGH"
                             onclick="filterTable(this)">
                         HIGH
-                        <span>{{ high_count }}</span>
+                        <span>{{ severity_counts.HIGH }}</span>
                     </button>
 
                     <button class="severity-btn medium"
                             data-severity="MEDIUM"
                             onclick="filterTable(this)">
                         MEDIUM
-                        <span>{{ medium_count }}</span>
+                        <span>{{ severity_counts.MEDIUM }}</span>
                     </button>
 
                     <button class="severity-btn low"
                             data-severity="LOW"
                             onclick="filterTable(this)">
                         LOW
-                        <span>{{ low_count }}</span>
+                        <span>{{ severity_counts.LOW }}</span>
                     </button>
 
                     <button class="severity-btn info"
                             data-severity="INFO"
                             onclick="filterTable(this)">
                         INFO
-                        <span>{{ info_count }}</span>
+                        <span>{{ severity_counts.INFO }}</span>
                     </button>
                 </div>
             </div>
@@ -356,17 +318,39 @@
     </div>
 </body>
 <script>
+    let severityButtons;
+    let behaviorRows;
+    let scanGroups;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        severityButtons = document.querySelectorAll(".severity-btn");
+        behaviorRows = document.querySelectorAll(".behavior-row");
+        scanGroups = document.querySelectorAll(".scan-group");
+
+        scanGroups.forEach(group => {
+            const titleElement = group.querySelector(".scan-title");
+            if (!titleElement) return;
+
+            const title = titleElement.textContent.trim();
+
+            if (title === "Malicious" || title === "Suspicious") {
+                group.classList.add("open");
+            }
+        });
+    });
     function toggleScanGroup(button){
-        const group = button.parentElement;
-        group.classList.toggle("open");
+        const group = button.closest(".scan-group");
+        if (group) {
+            group.classList.toggle("open");
+        }
     }
     function filterTable(button) {
         const severity = button.dataset.severity;
-        document.querySelectorAll(".severity-btn").forEach(btn => {
+        severityButtons.forEach(btn => {
             btn.classList.remove("active");
         });
         button.classList.add("active");
-        document.querySelectorAll(".behavior-row").forEach(row => {
+        behaviorRows.forEach(row => {
             const detailRow = row.nextElementSibling;
             const visible =
                 severity === "ALL" ||
@@ -384,7 +368,8 @@
         });
     }
     function toggleDetails(button) {
-        const detailRow = button.closest("tr").nextElementSibling;
+        const row = button.closest(".behavior-row");
+        const detailRow = row.nextElementSibling;
         const isVisible = window.getComputedStyle(detailRow).display === "table-row";
 
         if (isVisible) {
@@ -396,8 +381,10 @@
         }
     }
     function toggleTechnical(button){
-        const section = button.parentElement;
-        section.classList.toggle("open");
+        const section = button.closest(".technical-section");
+        if (section) {
+            section.classList.toggle("open");
+        }
     }
     function copyHash(hash, button) {
         navigator.clipboard.writeText(hash).then(() => {
@@ -418,16 +405,5 @@
             console.error("Failed to copy:", err);
         });
     }
-    document.addEventListener("DOMContentLoaded", () => {
-        document.querySelectorAll(".scan-group").forEach(group => {
-            const titleElement = group.querySelector(".scan-title");
-            if (!titleElement) return;
-            const title = titleElement.textContent.trim();
-
-            if(title === "Malicious" || title === "Suspicious"){
-                group.classList.add("open");
-            }
-        });
-    });
 </script>
 </html>
