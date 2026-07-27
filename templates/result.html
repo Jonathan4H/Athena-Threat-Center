@@ -19,12 +19,12 @@
                         {% if filename %}
                             {{ filename }}
                         {% else %}
-                            {{ file_data['data']['attributes']['sha256'][:12] }}...
+                            {{ attributes.sha256[:12] }}...
                         {% endif %}
                     </h2>
 
                     <p class="hero-type">
-                        {{ file_data['data']['attributes']['type_description'] }}
+                        {{ attributes.type_description }}
                     </p>
                 </div>
 
@@ -71,7 +71,7 @@
                 <div>
                     <span class="label">Size</span>
                     <strong>
-                        {{ "{:,.2f}".format(file_data['data']['attributes']['size'] / 1024 / 1024) }}
+                        {{ "{:,.2f}".format(attributes.size / 1024 / 1024) }}
                         MB
                     </strong>
                 </div>
@@ -79,59 +79,25 @@
                 <div>
                     <span class="label">SHA256</span>
                     <code>
-                        {{ file_data['data']['attributes']['sha256'][:10] }}...
+                        {{ attributes.sha256[:10] }}...
                     </code>
                 </div>
             </div>
         </div>
-        {% set scan_results = file_data['data']['attributes']['last_analysis_results'] %}
-
-        {% set malicious_results = [] %}
-        {% set suspicious_results = [] %}
-        {% set undetected_results = [] %}
-        {% set harmless_results = [] %}
-        {% set timeout_results = [] %}
-        {% set failure_results = [] %}
-        {% set other_results = [] %}
-
-        {% for engine, result in scan_results.items() %}
-            {% set item = {'engine': engine, 'result': result} %}
-
-            {% if result['category'] == 'malicious' %}
-                {% set _ = malicious_results.append(item) %}
-            {% elif result['category'] == 'suspicious' %}
-                {% set _ = suspicious_results.append(item) %}
-            {% elif result['category'] == 'undetected' %}
-                {% set _ = undetected_results.append(item) %}
-            {% elif result['category'] == 'harmless' %}
-                {% set _ = harmless_results.append(item) %}
-            {% elif result['category'] == 'timeout' %}
-                {% set _ = timeout_results.append(item) %}
-            {% elif result['category'] == 'failure' %}
-                {% set _ = failure_results.append(item) %}
-            {% else %}
-                {% set _ = other_results.append(item) %}
-            {% endif %}
-        {% endfor %}
         <div class="scan-groups">
-
-            {% macro render_group(title, icon, css, items) %}
-
-            {% if items|length > 0 %}
-
+            {% macro render_group(group) %}
             <div class="scan-group">
-                <button class="scan-group-header"
-                        onclick="toggleScanGroup(this)">
+                <button class="scan-group-header">
 
                     <div>
-                        <span class="scan-icon">{{ icon }}</span>
+                        <span class="scan-icon">{{ group["icon"] }}</span>
 
                         <span class="scan-title">
-                            {{ title }}
+                            {{ group["title"] }}
                         </span>
 
                         <span class="scan-count">
-                            {{ items|length }}
+                            {{ group["items"]|length }}
                         </span>
                     </div>
 
@@ -148,43 +114,25 @@
                             <th>Detection</th>
                         </tr>
                         </thead>
-
                         <tbody>
-
-                        {% for item in items %}
-
+                        {% for item in group["items"] %}
                         <tr>
                             <td class="engine-name">
                                 {{ item.engine }}
                             </td>
-
                             <td>
-                                {% if item.result.result %}
-                                    {{ item.result.result }}
-                                {% else %}
-                                    —
-                                {% endif %}
+                                {{ item.result.result or "—" }}
                             </td>
                         </tr>
-
                         {% endfor %}
-
                         </tbody>
                     </table>
                 </div>
             </div>
-
-            {% endif %}
-
             {% endmacro %}
-
-            {{ render_group("Malicious", "🔴", "malicious", malicious_results) }}
-            {{ render_group("Suspicious", "🟠", "suspicious", suspicious_results) }}
-            {{ render_group("Undetected", "🟢", "undetected", undetected_results) }}
-            {{ render_group("Harmless", "🟢", "harmless", harmless_results) }}
-            {{ render_group("Timeout", "⚪", "timeout", timeout_results) }}
-            {{ render_group("Failure", "🟣", "failure", failure_results) }}
-            {{ render_group("Other", "🔹", "other", other_results) }}
+            {% for group in scan_groups %}
+                {{ render_group(group) }}
+            {% endfor %}
         </div>
         {% if behavior_data %}
         <h2>Behavior Data</h2>
@@ -195,36 +143,31 @@
                 </span>
                 <div class="severity-buttons">
                     <button class="severity-btn active"
-                            data-severity="ALL"
-                            onclick="filterTable(this)">
+                            data-severity="ALL">
                         All
                         <span>{{ severity_counts.ALL }}</span>
                     </button>
 
                     <button class="severity-btn high"
-                            data-severity="HIGH"
-                            onclick="filterTable(this)">
+                            data-severity="HIGH">
                         HIGH
                         <span>{{ severity_counts.HIGH }}</span>
                     </button>
 
                     <button class="severity-btn medium"
-                            data-severity="MEDIUM"
-                            onclick="filterTable(this)">
+                            data-severity="MEDIUM">
                         MEDIUM
                         <span>{{ severity_counts.MEDIUM }}</span>
                     </button>
 
                     <button class="severity-btn low"
-                            data-severity="LOW"
-                            onclick="filterTable(this)">
+                            data-severity="LOW">
                         LOW
                         <span>{{ severity_counts.LOW }}</span>
                     </button>
 
                     <button class="severity-btn info"
-                            data-severity="INFO"
-                            onclick="filterTable(this)">
+                            data-severity="INFO">
                         INFO
                         <span>{{ severity_counts.INFO }}</span>
                     </button>
@@ -240,7 +183,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for behavior in behavior_data['data']['signature_matches'] %}
+                    {% for behavior in signatures %}
                     <tr class="behavior-row" data-severity="{{ behavior['severity'] }}">
                         <td class="{{ behavior['severity'] }}">
                             {{ behavior['severity'] }}
@@ -252,9 +195,7 @@
                             {{ behavior['description'] }}
                         </td>
                         <td class="expand-column">
-                            <button
-                                class="expand-btn"
-                                onclick="toggleDetails(this)">
+                            <button class="expand-btn">
                                 ▼ Details
                             </button>
                         </td>
@@ -274,8 +215,7 @@
             <p>No behavior data available for this file.</p>
         {% endif %}
         <div class="technical-section">
-            <button class="technical-header"
-                    onclick="toggleTechnical(this)">
+            <button class="technical-header">
                 <span>🔧 Technical Details</span>
                 <span class="technical-arrow">▼</span>
             </button>
@@ -287,11 +227,11 @@
                     </span>
                     <div class="technical-value">
                         <code>
-                            {{ file_data['data']['attributes']['sha256'] }}
+                            {{ attributes.sha256 }}
                         </code>
                         <button
                             class="copy-btn"
-                            onclick="copyHash('{{ file_data['data']['attributes']['sha256'] }}', this)">
+                            data-copy="{{ attributes.sha256 }}">
                             Copy
                         </button>
                     </div>
@@ -303,11 +243,11 @@
                     </span>
                     <div class="technical-value">
                         <code>
-                            {{ file_data['data']['attributes']['md5'] }}
+                            {{ attributes.md5 }}
                         </code>
                         <button
                             class="copy-btn"
-                            onclick="copyHash('{{ file_data['data']['attributes']['md5'] }}', this)">
+                            data-copy="{{ attributes.md5 }}">
                             Copy
                         </button>
                     </div>
@@ -336,6 +276,47 @@
             if (title === "Malicious" || title === "Suspicious") {
                 group.classList.add("open");
             }
+        });
+
+        document.addEventListener("click", (event) => {
+            const scanHeader = event.target.closest(".scan-group-header");
+            if (scanHeader) {
+                toggleScanGroup(scanHeader);
+                return;
+            }
+
+            const severityBtn = event.target.closest(".severity-btn");
+            if (severityBtn) {
+                filterTable(severityBtn);
+                return;
+            }
+
+            const technicalHeader = event.target.closest(".technical-header");
+            if (technicalHeader) {
+                toggleTechnical(technicalHeader);
+                return;
+            }
+
+            const copyBtn = event.target.closest(".copy-btn");
+            if (copyBtn) {
+                copyHash(copyBtn.dataset.copy, copyBtn);
+                return;
+            }
+
+            const button = event.target.closest(".expand-btn");
+
+            if (!button) {
+                return;
+            }
+
+            const row = button.closest(".behavior-row");
+            const detailRow = row.nextElementSibling;
+
+            const isOpen = detailRow.classList.toggle("open");
+
+            button.textContent = isOpen
+                ? "▲ Hide"
+                : "▼ Details";
         });
     });
     function toggleScanGroup(button){
@@ -366,19 +347,6 @@
                 }
             }
         });
-    }
-    function toggleDetails(button) {
-        const row = button.closest(".behavior-row");
-        const detailRow = row.nextElementSibling;
-        const isVisible = window.getComputedStyle(detailRow).display === "table-row";
-
-        if (isVisible) {
-            detailRow.style.display = "none";
-            button.textContent = "▼ Details";
-        } else {
-            detailRow.style.display = "table-row";
-            button.textContent = "▲ Hide";
-        }
     }
     function toggleTechnical(button){
         const section = button.closest(".technical-section");

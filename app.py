@@ -162,6 +162,8 @@ def vt_get_behavior(sha256):
 
 def poll_analysis(analysis_id, timeout=180):
     start = time.time()
+    delay = 1
+    max_delay = 10
 
     while time.time() - start < timeout:
         response = vt_get_analysis(analysis_id)
@@ -187,7 +189,15 @@ def poll_analysis(analysis_id, timeout=180):
             )
             return data, 200
 
-        time.sleep(5)
+        logging.debug(
+            "Analysis not complete. Waiting %d seconds before retrying.",
+            delay,
+        )
+
+        remaining = timeout - (time.time() - start)
+        time.sleep(min(delay, max(0, remaining)))
+
+        delay = min(delay * 2, max_delay)
 
     logging.warning(
         "VirusTotal analysis %s timed out after %d seconds.",
@@ -205,16 +215,11 @@ def normalize_behavior_signatures(signatures):
         "IMPACT_SEVERITY_INFO": "INFO"
     }
 
-    return [
-        {
-            **sig,
-            "severity": severity_map.get(
-                sig.get("severity"),
-                "UNKNOWN",
-            ),
-        }
-        for sig in signatures
-    ]
+    for sig in signatures:
+        sig["severity"] = severity_map.get(
+            sig.get("severity"),
+            "UNKNOWN",
+        )
 
 def get_severity_counts(signatures):
     """
@@ -236,7 +241,6 @@ def build_scan_summary(attributes):
 
     malicious = stats.get("malicious", 0)
     total = sum(stats.values())
-
     threat_percent = min((malicious / 15) * 100, 100)
 
     if malicious == 0:
@@ -249,38 +253,24 @@ def build_scan_summary(attributes):
             "class": "safe",
             "label": "SAFE",
         }
-
-    elif malicious <= 5:
-        verdict = {
-            "text": "MALICIOUS",
-            "icon": "🔴",
-            "css": "malicious",
-        }
-        threat = {
-            "class": "low",
-            "label": "LOW RISK",
-        }
-
-    elif malicious <= 15:
-        verdict = {
-            "text": "MALICIOUS",
-            "icon": "🔴",
-            "css": "malicious",
-        }
-        threat = {
-            "class": "medium",
-            "label": "MEDIUM RISK",
-        }
-
     else:
         verdict = {
             "text": "MALICIOUS",
             "icon": "🔴",
             "css": "malicious",
         }
+
+        risk = (
+            ("low", "LOW RISK")
+            if malicious <= 5 else
+            ("medium", "MEDIUM RISK")
+            if malicious <= 15 else
+            ("high", "HIGH RISK")
+        )
+
         threat = {
-            "class": "high",
-            "label": "HIGH RISK",
+            "class": risk[0],
+            "label": risk[1],
         }
 
     return {
@@ -291,6 +281,48 @@ def build_scan_summary(attributes):
         "verdict": verdict,
         "threat": threat,
     }
+
+def build_scan_groups(scan_results):
+    """
+    Group VirusTotal engine results by category for display.
+    """
+
+    categories = [
+        ("malicious", "Malicious", "🔴"),
+        ("suspicious", "Suspicious", "🟠"),
+        ("undetected", "Undetected", "🟢"),
+        ("harmless", "Harmless", "🟢"),
+        ("timeout", "Timeout", "⚪"),
+        ("failure", "Failure", "🟣"),
+        ("other", "Other", "🔹"),
+    ]
+
+    grouped = {
+        key: {
+            "title": title,
+            "icon": icon,
+            "css": key,
+            "items": [],
+        }
+        for key, title, icon in categories
+    }
+
+    for engine, result in scan_results.items():
+        category = result.get("category", "other")
+
+        if category not in grouped:
+            category = "other"
+
+        grouped[category]["items"].append({
+            "engine": engine,
+            "result": result,
+        })
+
+    return [
+        grouped[key]
+        for key, _, _ in categories
+        if grouped[key]["items"]
+    ]
 
 @app.route("/upload", methods=["POST"])
 @limiter.limit("30 per hour")
@@ -409,11 +441,13 @@ def upload_file():
         if attributes is None:
             flash("Unexpected VirusTotal response.")
             return redirect(url_for("index"))
-        scan_summary = build_scan_summary(attributes)
         stats = attributes.get("last_analysis_stats")
+        analysis_results = attributes.get("last_analysis_results", {})
         if not stats:
             flash("VirusTotal report is incomplete.")
             return redirect(url_for("index"))
+        scan_summary = build_scan_summary(attributes)
+        scan_groups = build_scan_groups(analysis_results)
         behavior_data = None
         behavior_response = vt_get_behavior(sha256)
         if handle_vt_rate_limit(behavior_response):
@@ -422,22 +456,21 @@ def upload_file():
             behavior_data = None
         elif behavior_response.ok:
             behavior_data = behavior_response.json()
-            data = behavior_data.get("data")
+            behavior = behavior_data.get("data")
             severity_counts = None
-            if data:
-                signatures = data.get("signature_matches", [])
-
-                normalized = normalize_behavior_signatures(signatures)
-                data["signature_matches"] = normalized
-
-                severity_counts = get_severity_counts(normalized)
+            if behavior:
+                signatures = behavior.get("signature_matches", [])
+                normalize_behavior_signatures(signatures)
+                severity_counts = get_severity_counts(signatures)
 
         return render_template(
             "result.html",
-            file_data=file_data,
+            attributes=attributes,
             behavior_data=behavior_data,
             scan_summary=scan_summary,
-            severity_counts=severity_counts
+            severity_counts=severity_counts,
+            scan_groups=scan_groups,
+            filename=file.filename
         )
 
     except requests.Timeout:

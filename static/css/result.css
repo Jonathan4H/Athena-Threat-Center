@@ -233,6 +233,9 @@ input {
 .details-row {
     display: none;
 }
+.details-row.open {
+    display: table-row;
+}
 .details-content {
     background: var(--bg-primary);
     border:1px solid var(--border-color);
