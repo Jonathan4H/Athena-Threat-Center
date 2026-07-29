@@ -258,14 +258,10 @@
     </div>
 </body>
 <script>
-    let severityButtons;
-    let behaviorRows;
-    let scanGroups;
-
     document.addEventListener("DOMContentLoaded", () => {
-        severityButtons = document.querySelectorAll(".severity-btn");
-        behaviorRows = document.querySelectorAll(".behavior-row");
-        scanGroups = document.querySelectorAll(".scan-group");
+        const severityButtons = document.querySelectorAll(".severity-btn");
+        const behaviorRows = document.querySelectorAll(".behavior-row");
+        const scanGroups = document.querySelectorAll(".scan-group");
 
         scanGroups.forEach(group => {
             const titleElement = group.querySelector(".scan-title");
@@ -277,6 +273,64 @@
                 group.classList.add("open");
             }
         });
+
+        function toggleScanGroup(button){
+            const group = button.closest(".scan-group");
+            if (group) {
+                group.classList.toggle("open");
+            }
+        }
+
+        function filterTable(button) {
+            const severity = button.dataset.severity;
+            severityButtons.forEach(btn => {
+                btn.classList.remove("active");
+            });
+            button.classList.add("active");
+            behaviorRows.forEach(row => {
+                const detailRow = row.nextElementSibling;
+                const visible =
+                    severity === "ALL" ||
+                    row.dataset.severity === severity;
+                row.style.display = visible ? "" : "none";
+
+                if (!visible) {
+                    detailRow.classList.remove("open");
+                    const expandBtn = row.querySelector(".expand-btn");
+
+                    if (expandBtn) {
+                        expandBtn.textContent = "▼ Details";
+                    }
+                }
+            });
+        }
+
+        function toggleTechnical(button){
+            const section = button.closest(".technical-section");
+            if (section) {
+                section.classList.toggle("open");
+            }
+        }
+
+        function copyHash(hash, button) {
+            navigator.clipboard.writeText(hash).then(() => {
+
+                const originalText = button.textContent;
+
+                button.textContent = "Copied!";
+                button.classList.add("copied");
+                button.disabled = true;
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove("copied");
+                    button.disabled = false;
+                }, 2000);
+
+            }).catch(err => {
+                console.error("Failed to copy:", err);
+            });
+        }
 
         document.addEventListener("click", (event) => {
             const scanHeader = event.target.closest(".scan-group-header");
@@ -319,59 +373,5 @@
                 : "▼ Details";
         });
     });
-    function toggleScanGroup(button){
-        const group = button.closest(".scan-group");
-        if (group) {
-            group.classList.toggle("open");
-        }
-    }
-    function filterTable(button) {
-        const severity = button.dataset.severity;
-        severityButtons.forEach(btn => {
-            btn.classList.remove("active");
-        });
-        button.classList.add("active");
-        behaviorRows.forEach(row => {
-            const detailRow = row.nextElementSibling;
-            const visible =
-                severity === "ALL" ||
-                row.dataset.severity === severity;
-            row.style.display = visible ? "" : "none";
-
-            if (!visible) {
-                detailRow.classList.remove("open");
-                const expandBtn = row.querySelector(".expand-btn");
-
-                if (expandBtn) {
-                    expandBtn.textContent = "▼ Details";
-                }
-            }
-        });
-    }
-    function toggleTechnical(button){
-        const section = button.closest(".technical-section");
-        if (section) {
-            section.classList.toggle("open");
-        }
-    }
-    function copyHash(hash, button) {
-        navigator.clipboard.writeText(hash).then(() => {
-
-            const originalText = button.textContent;
-
-            button.textContent = "Copied!";
-            button.classList.add("copied");
-            button.disabled = true;
-
-            setTimeout(() => {
-                button.textContent = originalText;
-                button.classList.remove("copied");
-                button.disabled = false;
-            }, 2000);
-
-        }).catch(err => {
-            console.error("Failed to copy:", err);
-        });
-    }
 </script>
 </html>

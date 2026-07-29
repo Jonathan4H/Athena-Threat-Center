@@ -78,7 +78,7 @@ def calculate_sha256(file):
 
     file.stream.seek(0)
 
-    while chunk := file.stream.read(65536):
+    while chunk := file.stream.read(1024 * 1024):
         sha256.update(chunk)
 
     file.stream.seek(0)
@@ -103,7 +103,6 @@ def validate_upload(file):
     # Determine file size once
     file.stream.seek(0, 2)
     size = file.stream.tell()
-    file.stream.seek(0)
 
     if size == 0:
         return "The selected file is empty.", None
@@ -448,7 +447,7 @@ def upload_file():
             .get("data", {})
             .get("attributes")
         )
-        if attributes is None:
+        if not attributes:
             flash("Unexpected VirusTotal response.")
             return redirect(url_for("index"))
         size_mb = f"{attributes['size'] / (1024 * 1024):,.2f}"
@@ -458,6 +457,7 @@ def upload_file():
             return redirect(url_for("index"))
         scan_summary, scan_groups = build_scan_data(attributes)
         behavior_data = None
+        severity_counts = None
         behavior_response = vt_get_behavior(sha256)
         if handle_vt_rate_limit(behavior_response):
             return redirect(url_for("index"))
@@ -466,7 +466,6 @@ def upload_file():
         elif behavior_response.ok:
             behavior_data = behavior_response.json()
             behavior = behavior_data.get("data")
-            severity_counts = None
             if behavior:
                 signatures = behavior.get("signature_matches", [])
                 severity_counts = normalize_behavior_signatures(signatures)
