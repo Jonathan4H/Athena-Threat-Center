@@ -166,7 +166,7 @@ def vt_get_behavior(sha256):
     )
 
 def poll_analysis(analysis_id, timeout=180):
-    start = time.time()
+    start = time.monotonic()
     delay = 3
     max_delay = 10
 
@@ -333,153 +333,170 @@ def build_scan_data(attributes):
 
     return scan_summary, scan_groups
 
+def get_or_create_report(file, sha256, file_size):
+    response = vt_get_file(sha256)
+
+    if handle_vt_rate_limit(response):
+        return None
+
+    if response.status_code == 200:
+        return response.json()
+
+    if response.status_code == 404:
+        return upload_new_sample(file, sha256, file_size)
+
+    flash("VirusTotal lookup failed.")
+    return None
+
+def upload_new_sample(file, sha256, file_size):
+    upload = vt_post_file(file, file_size)
+
+    if handle_vt_rate_limit(upload):
+        return None
+
+    if upload.status_code == 409:
+        flash("This sample is already being analyzed.")
+        return None
+
+    if not upload.ok:
+        ...
+        return None
+
+    analysis_id = upload.json()["data"]["id"]
+
+    _, status = poll_analysis(analysis_id)
+
+    if status != 200:
+        ...
+        return None
+
+    return retrieve_completed_report(sha256)
+
+def retrieve_completed_report(
+    sha256,
+    retries=5,
+    delay=2,
+):
+    for attempt in range(retries):
+
+        response = vt_get_file(sha256)
+
+        if handle_vt_rate_limit(response):
+            return None
+
+        if response.status_code == 200:
+            return response.json()
+
+        if response.status_code != 404:
+            break
+
+        if attempt < retries - 1:
+            time.sleep(delay)
+
+    flash("Could not retrieve the completed VirusTotal report.")
+    return None
+
+def fetch_behavior_data(sha256):
+    response = vt_get_behavior(sha256)
+
+    if handle_vt_rate_limit(response):
+        return None, None
+
+    if response.status_code == 404:
+        return None, None
+
+    if not response.ok:
+        return None, None
+
+    behavior = response.json()
+
+    signatures = (
+        behavior.get("data", {})
+        .get("signature_matches", [])
+    )
+
+    counts = normalize_behavior_signatures(signatures)
+
+    return behavior, counts
+
+def build_result_context(file_data, sha256, filename):
+    """
+    Prepare all data required by result.html.
+
+    Returns:
+        dict | None
+    """
+
+    attributes = (
+        file_data
+        .get("data", {})
+        .get("attributes")
+    )
+
+    if not attributes:
+        flash("Unexpected VirusTotal response.")
+        return None
+
+    analysis_results = attributes.get("last_analysis_results")
+
+    if not analysis_results:
+        flash("VirusTotal report is incomplete.")
+        return None
+
+    size_mb = f"{attributes['size'] / (1024 * 1024):,.2f}"
+
+    scan_summary, scan_groups = build_scan_data(attributes)
+
+    behavior_data, severity_counts = fetch_behavior_data(sha256)
+
+    return {
+        "attributes": attributes,
+        "behavior_data": behavior_data,
+        "scan_summary": scan_summary,
+        "severity_counts": severity_counts,
+        "scan_groups": scan_groups,
+        "filename": filename,
+        "size_mb": size_mb,
+    }
+
+def render_scan_result(context):
+    return render_template(
+        "result.html",
+        **context,
+    )
+
 @app.route("/upload", methods=["POST"])
 @limiter.limit("30 per hour")
 def upload_file():
     file = request.files.get("upload")
 
     error, file_size = validate_upload(file)
-
     if error:
         flash(error)
         return redirect(url_for("index"))
 
     try:
-        # ---------------------------------
-        # Compute hash
-        # ---------------------------------
         sha256 = calculate_sha256(file)
-        logging.debug("Computed SHA-256: %s", sha256)
 
-        # ---------------------------------
-        # Does VT already know this file?
-        # ---------------------------------
-        file_response = vt_get_file(sha256)
-        if handle_vt_rate_limit(file_response):
-            return redirect(url_for("index"))
-        elif file_response.status_code == 200:
-            logging.info("Existing VirusTotal report found for %s.", sha256)
-            file_data = file_response.json()
-        elif file_response.status_code == 404:
-            logging.info("Uploading new sample '%s' to VirusTotal.", file.filename)
-            upload_response = vt_post_file(file, file_size)
-            if handle_vt_rate_limit(upload_response):
-                return redirect(url_for("index"))
-
-            # ----------------------------
-            # Handle upload errors
-            # ----------------------------
-            elif upload_response.status_code == 409:
-                flash(
-                    "This sample is already being analyzed. "
-                    "Please try again shortly."
-                )
-                return redirect(url_for("index"))
-            elif not upload_response.ok:
-                try:
-                    upload_json = upload_response.json()
-                    message = upload_json["error"]["message"]
-                except (ValueError, KeyError, TypeError):
-                    message = upload_response.text
-                flash(message)
-                return redirect(url_for("index"))
-
-            upload_json = upload_response.json()
-            analysis_id = upload_json["data"]["id"]
-            logging.debug("VirusTotal analysis ID: %s", analysis_id)
-
-            _,status = poll_analysis(analysis_id)
-
-            if status == 429:
-                flash(
-                    "VirusTotal rate limit exceeded while waiting "
-                    "for the analysis to complete. "
-                    "Please try again later."
-                )
-                return redirect(url_for("index"))
-            elif status == 408:
-                flash("VirusTotal analysis timed out.")
-                return redirect(url_for("index"))
-            elif status != 200:
-                flash("VirusTotal analysis failed.")
-                return redirect(url_for("index"))
-            # ---------------------------------
-            # Retrieve final report
-            # VirusTotal may take a few seconds
-            # to make the completed report available.
-            # Retry on 404 before giving up.
-            # ---------------------------------
-            max_retries = 5
-            retry_delay = 2  # seconds
-
-            for attempt in range(max_retries):
-                file_response = vt_get_file(sha256)
-
-                if handle_vt_rate_limit(file_response):
-                    return redirect(url_for("index"))
-
-                if file_response.status_code == 200:
-                    file_data = file_response.json()
-                    break
-
-                # Report not yet available despite completed analysis.
-                if file_response.status_code == 404:
-                    logging.info(
-                        "Report not yet available for %s "
-                        "(attempt %d/%d). Retrying...",
-                        sha256,
-                        attempt + 1,
-                        max_retries,
-                    )
-
-                    if attempt < max_retries - 1:
-                        time.sleep(retry_delay)
-                        continue
-
-                # Any other error (or retries exhausted)
-                flash("Could not retrieve the completed VirusTotal report.")
-                return redirect(url_for("index"))
-        else:
-            flash("VirusTotal lookup failed.")
-            return redirect(url_for("index"))
-        attributes = (
-            file_data
-            .get("data", {})
-            .get("attributes")
+        file_data = get_or_create_report(
+            file=file,
+            sha256=sha256,
+            file_size=file_size,
         )
-        if not attributes:
-            flash("Unexpected VirusTotal response.")
-            return redirect(url_for("index"))
-        size_mb = f"{attributes['size'] / (1024 * 1024):,.2f}"
-        analysis_results = attributes.get("last_analysis_results")
-        if not analysis_results:
-            flash("VirusTotal report is incomplete.")
-            return redirect(url_for("index"))
-        scan_summary, scan_groups = build_scan_data(attributes)
-        behavior_data = None
-        severity_counts = None
-        behavior_response = vt_get_behavior(sha256)
-        if handle_vt_rate_limit(behavior_response):
-            return redirect(url_for("index"))
-        elif behavior_response.status_code == 404:
-            behavior_data = None
-        elif behavior_response.ok:
-            behavior_data = behavior_response.json()
-            behavior = behavior_data.get("data")
-            if behavior:
-                signatures = behavior.get("signature_matches", [])
-                severity_counts = normalize_behavior_signatures(signatures)
 
-        return render_template(
-            "result.html",
-            attributes=attributes,
-            behavior_data=behavior_data,
-            scan_summary=scan_summary,
-            severity_counts=severity_counts,
-            scan_groups=scan_groups,
+        if file_data is None:
+            return redirect(url_for("index"))
+
+        context = build_result_context(
+            file_data=file_data,
+            sha256=sha256,
             filename=file.filename,
-            size_mb=size_mb
         )
+
+        if context is None:
+            return redirect(url_for("index"))
+
+        return render_scan_result(context)
 
     except requests.Timeout:
         logging.exception("VirusTotal timeout")
@@ -488,7 +505,6 @@ def upload_file():
     except requests.RequestException:
         logging.exception("Network error communicating with VirusTotal.")
         flash("Unable to communicate with VirusTotal. Please try again later.")
-        return redirect(url_for("index"))
 
     except Exception:
         logging.exception("Unexpected error")
