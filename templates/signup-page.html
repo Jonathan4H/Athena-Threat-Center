@@ -53,18 +53,24 @@
         { regex: /[0-9]/, key: 1 },
         { regex: /[^A-Za-z0-9]/, key: 2 }
     ];
-    validator.addEventListener("keyup", function (e) {
+    function updateValidation() {
         combinations.forEach((item) => {
-            const IsValid = item.regex.test(e.target.value);
+            const isValid = item.regex.test(validator.value);
             const checkItem = passwordCheck[item.key];
 
-            checkItem.classList.toggle("bi-check-circle", IsValid);
-            checkItem.classList.toggle("bi-x-circle", !IsValid);
+            checkItem.classList.toggle("bi-check-circle", isValid);
+            checkItem.classList.toggle("bi-x-circle", !isValid);
 
-            checkItem.parentElement.classList.toggle("valid", IsValid);
-            checkItem.parentElement.classList.toggle("invalid", !IsValid);
+            checkItem.parentElement.classList.toggle("valid", isValid);
+            checkItem.parentElement.classList.toggle("invalid", !isValid);
         });
-    });
+    }
+
+    // Update as the user types
+    validator.addEventListener("input", updateValidation);
+
+    // Initialize the validation state on page load
+    updateValidation();
     const generateBtn = document.getElementById("generatePassword");
 
     generateBtn.addEventListener("click", () => {
