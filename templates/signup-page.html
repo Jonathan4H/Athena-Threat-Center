@@ -78,6 +78,7 @@
 
         // Trigger validation
         validator.dispatchEvent(new Event("keyup"));
+        updateValidation();
     });
 
     function generatePassword(length = 16) {
