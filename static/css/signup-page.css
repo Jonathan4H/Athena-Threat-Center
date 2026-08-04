@@ -114,7 +114,6 @@ body {
     display: flex;
     align-items: center;
     padding: 5px;
-    color: red;
 }
 .password-check i {
     width: 20px;
@@ -146,4 +145,17 @@ body {
 .signup-box a span {
     position: absolute;
     display: block;
+}
+.valid {
+    color: #198754; /* Bootstrap success */
+}
+.invalid {
+    color: #dc3545; /* Bootstrap danger */
+}
+.valid i,
+.invalid i {
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+.valid i {
+    transform: scale(1.1);
 }

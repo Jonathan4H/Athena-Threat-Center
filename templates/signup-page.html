@@ -58,15 +58,11 @@
             const IsValid = item.regex.test(e.target.value);
             const checkItem = passwordCheck[item.key];
 
-            if (IsValid) {
-                checkItem.classList.remove("bi-x-circle");
-                checkItem.classList.add("bi-check-circle");
-                checkItem.parentElement.style.color = "green";
-            } else {
-                checkItem.classList.remove("bi-check-circle");
-                checkItem.classList.add("bi-x-circle");
-                checkItem.parentElement.style.color = "red";
-            }
+            checkItem.classList.toggle("bi-check-circle", IsValid);
+            checkItem.classList.toggle("bi-x-circle", !IsValid);
+
+            checkItem.parentElement.classList.toggle("valid", IsValid);
+            checkItem.parentElement.classList.toggle("invalid", !IsValid);
         });
     });
     const generateBtn = document.getElementById("generatePassword");
@@ -111,11 +107,30 @@
         return chars[array[0] % chars.length];
     }
 
+    function secureRandomInt(max) {
+        if (!Number.isInteger(max) || max <= 0) {
+            throw new Error("max must be a positive integer.");
+        }
+
+        const array = new Uint32Array(1);
+        const limit = Math.floor(0x100000000 / max) * max;
+
+        let random;
+
+        // Rejection sampling to avoid modulo bias.
+        do {
+            crypto.getRandomValues(array);
+            random = array[0];
+        } while (random >= limit);
+
+        return random % max;
+    }
+
     function shuffle(str) {
-        const arr = str.split("");
+        const arr = [...str];
 
         for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = secureRandomInt(i + 1);
             [arr[i], arr[j]] = [arr[j], arr[i]];
         }
 
