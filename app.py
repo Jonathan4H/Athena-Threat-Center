@@ -170,7 +170,7 @@ def poll_analysis(analysis_id, timeout=180):
     delay = 3
     max_delay = 10
 
-    while time.time() - start < timeout:
+    while time.monotonic() - start < timeout:
         response = vt_get_analysis(analysis_id)
         if response.status_code == 429:
             return None, 429
@@ -199,7 +199,7 @@ def poll_analysis(analysis_id, timeout=180):
             delay,
         )
 
-        remaining = timeout - (time.time() - start)
+        remaining = timeout - (time.monotonic() - start)
         time.sleep(min(delay, max(0, remaining)))
 
         delay = min(delay * 2, max_delay)

@@ -459,7 +459,7 @@ input {
     color:var(--text-secondary);
 }
 .scan-arrow {
-    transition:.2s;
+    transition: transform 0.2s ease;
 }
 .scan-group-content {
     display:none;
@@ -499,7 +499,7 @@ input {
     background:var(--bg-tertiary);
 }
 .technical-arrow {
-    transition:.25s;
+    transition: transform 0.2s ease;
 }
 .technical-content {
     display:none;
@@ -539,7 +539,8 @@ input {
     border-radius:6px;
     overflow-wrap:anywhere;
 }
-@media(max-width:768px) {
+
+@media (max-width: 768px) {
     .copy-btn {
         width:100%;
     }
@@ -553,13 +554,173 @@ input {
     .technical-value .copy-btn {
         width:100%;
     }
-}
-@media (max-width: 600px) {
+    
+    /* Hide the behavior table header */
+    #behaviorTable thead {
+        display: none;
+    }
+
+    /* Remove normal table behavior */
+    #behaviorTable,
+    #behaviorTable tbody {
+        display: block;
+        width: 100%;
+    }
+
+    /* -----------------------------------------
+       Behavior card
+    ----------------------------------------- */
+
+    #behaviorTable .behavior-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        grid-template-areas:
+            "severity severity"
+            "rule rule"
+            "description description"
+            "button button";
+        gap: 10px;
+        padding: 16px;
+        margin-bottom: 0;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 10px 10px 0 0;
+        box-sizing: border-box;
+    }
+
+    /* Severity */
+    #behaviorTable .behavior-row td:nth-child(1) {
+        grid-area: severity;
+        width: fit-content;
+        padding: 0;
+        font-size: .75rem;
+        font-weight: 700;
+        text-align: left;
+        letter-spacing: .06em;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(255,255,255,.06);
+    }
+
+    /* Rule name */
+    #behaviorTable .behavior-row td:nth-child(2) {
+        grid-area: rule;
+        padding: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        text-align: left;
+        color: var(--text-primary);
+    }
+
+    /* Description */
+    #behaviorTable .behavior-row td:nth-child(3) {
+        grid-area: description;
+        max-width: none;
+        padding: 0;
+        color: var(--text-secondary);
+        font-size: .9rem;
+        line-height: 1.5;
+
+        /* Don't truncate on mobile */
+        overflow: visible;
+        text-overflow: unset;
+        white-space: normal;
+    }
+
+    /* Details button */
+    #behaviorTable .behavior-row .expand-column {
+        grid-area: button;
+        padding: 4px 0 0;
+        text-align: left;
+    }
+    .expand-btn {
+        padding: 6px 0;
+        font-size: .85rem;
+    }
+
+    /* -----------------------------------------
+       Severity colors
+    ----------------------------------------- */
+
+    #behaviorTable .behavior-row td.HIGH {
+        color: var(--danger);
+        background: rgba(239,68,68,.12);
+    }
+    #behaviorTable .behavior-row td.MEDIUM {
+        color: var(--warning);
+        background: rgba(245,158,11,.12);
+    }
+    #behaviorTable .behavior-row td.LOW {
+        color: var(--success);
+        background: rgba(34,197,94,.12);
+    }
+    #behaviorTable .behavior-row td.INFO {
+        color: var(--info);
+        background: rgba(56,189,248,.12);
+    }
+
+    /* -----------------------------------------
+       Details card
+    ----------------------------------------- */
+
+    #behaviorTable .details-row {
+        display: none;
+        margin-bottom: 12px;
+        background: var(--bg-primary);
+        border-left: 1px solid var(--border-color);
+        border-right: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+        border-radius: 0 0 10px 10px;
+    }
+    #behaviorTable .details-row.open {
+        display: block;
+    }
+    #behaviorTable .details-row td {
+        display: block;
+        width: 100%;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    .details-content {
+        margin: 0;
+        padding: 16px;
+        border: none;
+        border-top: 1px solid var(--border-color);
+        border-radius: 0;
+        background: rgba(255,255,255,.02);
+    }
+    .details-content strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: .8rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--text-secondary);
+    }
+    .details-content pre {
+        margin: 0;
+        font-size: .8rem;
+        line-height: 1.5;
+        overflow-x: auto;
+    }
+
     .container {
         width: 100%;
-        padding: 10px;
+        box-sizing: border-box;
+        padding: 12px;
+        margin: 0;
+        border-radius: 0;
     }
-    table {
-        font-size: 14px;
+    .hero-card {
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 24px;
+    }
+    .hero-file {
+        font-size: 1.35rem;
+        word-break: break-word;
+    }
+    .hero-ratio {
+        font-size: 2.7rem;
     }
 }
