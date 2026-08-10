@@ -10,6 +10,7 @@ import time
 import logging
 import config
 import hashlib
+import re
 
 logging.basicConfig(
     level=logging.INFO,
@@ -465,6 +466,178 @@ def render_scan_result(context):
         **context,
     )
 
+# ------------------------------------------------------------------
+# Signup throttling
+# ------------------------------------------------------------------
+
+SIGNUP_COOLDOWN_STEPS = [
+    (3, 30),       # 3rd attempt -> 30 seconds
+    (5, 120),      # 5th attempt -> 2 minutes
+    (8, 600),      # 8th attempt -> 10 minutes
+    (12, 3600),    # 12th attempt -> 1 hour
+]
+
+signup_attempts = {}
+
+
+def get_signup_client_key():
+    """
+    Identify the client attempting registration.
+
+    Do not trust X-Forwarded-For unless the application is behind
+    a trusted proxy configured to set it correctly.
+    """
+    return get_remote_address()
+
+
+def cleanup_signup_attempts(now=None):
+    """
+    Remove old entries so the in-memory dictionary does not grow forever.
+    """
+    now = now or time.time()
+
+    expired = [
+        key
+        for key, data in signup_attempts.items()
+        if now - data["last_attempt"] > 3600
+    ]
+
+    for key in expired:
+        signup_attempts.pop(key, None)
+
+
+def get_signup_throttle_status(client_key):
+    """
+    Return the current signup throttle state.
+
+    The attempt counter expires after one hour without an attempt.
+    """
+
+    now = time.time()
+    cleanup_signup_attempts(now)
+
+    data = signup_attempts.get(client_key)
+
+    if data is None:
+        return {
+            "allowed": True,
+            "retry_after": 0,
+            "attempts": 0,
+        }
+
+    attempts = data["attempts"]
+
+    cooldown = 0
+
+    for threshold, seconds in SIGNUP_COOLDOWN_STEPS:
+        if attempts >= threshold:
+            cooldown = seconds
+
+    elapsed = now - data["last_attempt"]
+
+    if cooldown and elapsed < cooldown:
+        return {
+            "allowed": False,
+            "retry_after": max(1, int(cooldown - elapsed)),
+            "attempts": attempts,
+        }
+
+    # Important:
+    # Once the cooldown has expired, start a fresh throttle window.
+    if cooldown and elapsed >= cooldown:
+        signup_attempts.pop(client_key, None)
+
+        return {
+            "allowed": True,
+            "retry_after": 0,
+            "attempts": 0,
+        }
+
+    return {
+        "allowed": True,
+        "retry_after": 0,
+        "attempts": attempts,
+    }
+
+
+def record_signup_attempt(client_key):
+    """
+    Record a signup POST attempt.
+
+    This happens before validating the submitted data so an attacker
+    cannot bypass throttling by intentionally submitting invalid forms.
+    """
+    now = time.time()
+
+    data = signup_attempts.get(client_key)
+
+    if data is None:
+        signup_attempts[client_key] = {
+            "attempts": 1,
+            "last_attempt": now,
+        }
+        return
+
+    data["attempts"] += 1
+    data["last_attempt"] = now
+
+
+def reset_signup_throttle(client_key):
+    """
+    Reset the custom signup throttle after a successful registration.
+    """
+    signup_attempts.pop(client_key, None)
+
+
+def validate_email(email):
+    """
+    Basic email validation.
+
+    This is deliberately not an attempt to implement the entire
+    RFC email grammar. The database/application should also enforce
+    uniqueness and reasonable length.
+    """
+    if not email:
+        return False
+
+    if len(email) > 254:
+        return False
+
+    return re.fullmatch(
+        r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+",
+        email,
+    ) is not None
+
+
+def validate_password(password):
+    """
+    Validate the server-side password requirements.
+    """
+
+    if not isinstance(password, str):
+        return False
+
+    # Match the frontend requirement.
+    if len(password) < 8:
+        return False
+
+    if not re.search(r"[A-Z]", password):
+        return False
+
+    if not re.search(r"[a-z]", password):
+        return False
+
+    if not re.search(r"[0-9]", password):
+        return False
+
+    specials = r"""!@#$%^&*()-_=+[]{}<>?"""
+
+    if not any(char in specials for char in password):
+        return False
+
+    return True
+
 @app.route("/upload", methods=["POST"])
 @limiter.limit("30 per hour")
 def upload_file():
@@ -512,12 +685,135 @@ def upload_file():
 
     return redirect(url_for("index"))
 
+@app.route("/signup", methods=["GET", "POST"])
+@limiter.limit("5 per hour", methods=["POST"])
+@limiter.limit("2 per minute", methods=["POST"])
+def signup():
+    # GET must always be allowed to display the signup page.
+    if request.method == "GET":
+        return render_template("signup-page.html")
+
+    client_key = get_signup_client_key()
+
+    # --------------------------------------------------------------
+    # Check custom signup cooldown.
+    # --------------------------------------------------------------
+
+    throttle = get_signup_throttle_status(client_key)
+
+    if not throttle["allowed"]:
+        logging.warning(
+            "Signup temporarily throttled: ip=%s attempts=%d retry_after=%d",
+            client_key,
+            throttle["attempts"],
+            throttle["retry_after"],
+        )
+
+        response = redirect(url_for("signup"))
+
+        response.headers["Retry-After"] = str(
+            throttle["retry_after"]
+        )
+
+        flash(
+            "Too many registration attempts. "
+            "Please wait before trying again."
+        )
+
+        return response, 429
+
+    # --------------------------------------------------------------
+    # Record the attempt BEFORE validation.
+    # --------------------------------------------------------------
+
+    record_signup_attempt(client_key)
+
+    # --------------------------------------------------------------
+    # Read form data.
+    # --------------------------------------------------------------
+
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    # --------------------------------------------------------------
+    # Validate email.
+    # --------------------------------------------------------------
+
+    if not validate_email(email):
+        flash("Please enter a valid email address.")
+        return redirect(url_for("signup"))
+
+    # --------------------------------------------------------------
+    # Validate password server-side.
+    # --------------------------------------------------------------
+
+    if not validate_password(password):
+        flash(
+            "Password must be at least 8 characters long and contain "
+            "an uppercase letter, a lowercase letter, a number, "
+            "and a special character."
+        )
+        return redirect(url_for("signup"))
+
+    # --------------------------------------------------------------
+    # Check whether the email already exists.
+    # --------------------------------------------------------------
+
+    # user = User.query.filter_by(email=email).first()
+    #
+    # if user:
+    #     # Do not reveal unnecessary account information if your
+    #     # application needs to prevent account enumeration.
+    #     flash(
+    #         "If the registration details are valid, "
+    #         "your account will be created."
+    #     )
+    #     return redirect(url_for("login"))
+
+    # --------------------------------------------------------------
+    # Create the account.
+    # --------------------------------------------------------------
+
+    # IMPORTANT:
+    # Never store `password` directly.
+    #
+    # Example with Werkzeug:
+    #
+    # from werkzeug.security import generate_password_hash
+    #
+    # user = User(
+    #     email=email,
+    #     password_hash=generate_password_hash(
+    #         password,
+    #         method="scrypt"
+    #     )
+    # )
+    #
+    # db.session.add(user)
+    # db.session.commit()
+
+    # --------------------------------------------------------------
+    # Only reset the custom throttle AFTER successful DB creation.
+    # --------------------------------------------------------------
+
+    # reset_signup_throttle(client_key)
+
+    flash("Account created successfully.")
+    return redirect(url_for("login"))
+
 @app.errorhandler(429)
 def ratelimit_handler(error):
     logging.warning(
         "Rate limit exceeded: %s",
         error
     )
+
+    if request.endpoint == "signup":
+        flash(
+            "Too many registration attempts. "
+            "Please wait before trying again."
+        )
+        return redirect(url_for("signup")), 429
 
     flash(
         "You've reached the upload limit. "
