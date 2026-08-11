@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_wtf.csrf import CSRFProtect
-from flask_wtf.csrf import CSRFError
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import RequestEntityTooLarge
