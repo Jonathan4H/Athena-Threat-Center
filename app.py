@@ -49,7 +49,7 @@ STATIC_PAGES = {
     "/login-page.html": ("login", "login-page.html"),
     "/reset-pass.html": ("reset", "reset-pass.html"),
     "/resources-page.html": ("resources", "resources-page.html"),
-    "/signup-page.html": ("signup", "signup-page.html"),
+    "/signup-page.html": ("signup_page", "signup-page.html"),
 }
 
 def make_view(template):
